@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ReelStash Downloads">
+  <circle cx="32" cy="32" r="30" fill="#F26B1D"/>
+  <g fill="#0E9AA7">
+    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8"/>
+    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(90 32 32)"/>
+    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(180 32 32)"/>
+    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(270 32 32)"/>
+  </g>
+  <circle cx="32" cy="32" r="14" fill="#FFF6E6"/>
+  <path d="M29.2 22.8 H34.8 V30.2 H39.2 L32 37.6 L24.8 30.2 H29.2 Z" fill="#0E9AA7"/>
+</svg>

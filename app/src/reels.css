@@ -1,0 +1,53 @@
+/* Reels: a vertical, one-at-a-time player for portrait videos (pages/Reels.jsx). */
+.rs-reels { --rs-reels-inset: 1.5rem; position: relative; height: calc(100dvh - var(--spk-topbar-h, 3.625rem) - var(--rs-reels-inset, 0px)); min-height: 24rem; }
+.rs-reels-feed { height: 100%; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+.rs-reels-feed::-webkit-scrollbar { display: none; }
+.rs-reel { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; display: flex; align-items: center; justify-content: center; padding: .75rem 0; container-type: inline-size; }
+.rs-reel-stage { display: flex; align-items: flex-end; gap: .9rem; height: 100%; max-width: 100%; min-width: 0; }
+.rs-reel-frame { position: relative; height: 100%; aspect-ratio: 9 / 16; max-width: calc(100cqw - 4.5rem); overflow: hidden; border-radius: 1rem; background: #000; box-shadow: 0 1.5rem 3rem -1.5rem rgb(0 0 0 / .6); }
+.rs-reel-video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; cursor: pointer; }
+img.rs-reel-video { object-fit: cover; filter: brightness(.75); }
+.rs-reel-paused { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: #fff; }
+.rs-reel-paused svg { padding: 1.1rem; width: 4.6rem; height: 4.6rem; border-radius: 999px; background: rgb(0 0 0 / .45); }
+.rs-reel-error { position: absolute; inset: auto 1rem 45% 1rem; padding: .8rem 1rem; border-radius: .75rem; background: rgb(0 0 0 / .75); color: #fff; text-align: center; font-size: .9rem; }
+.rs-reel-error a, .rs-reel-error button { color: inherit; text-decoration: underline; margin-left: .35rem; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+/* Title on top, seekbar lifted off the bottom edge; each over a soft shade so it reads on any video. */
+.rs-reel-caption { position: absolute; inset: 0 0 auto 0; padding: 1rem 1rem 3rem; background: linear-gradient(rgb(0 0 0 / .72), transparent); color: #fff; pointer-events: none; }
+.rs-reel-frame::after { content: ''; position: absolute; inset: auto 0 0 0; height: 5rem; background: linear-gradient(transparent, rgb(0 0 0 / .5)); pointer-events: none; }
+.rs-reel-caption p { margin: .25rem 0 0; font-size: .85rem; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-reel-title { pointer-events: auto; color: inherit; font-weight: 650; font-size: 1rem; line-height: 1.3; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rs-reel-title:hover { text-decoration: underline; }
+.rs-reel-progress { position: absolute; left: 1rem; right: 1rem; bottom: 1.1rem; height: 1.25rem; display: flex; align-items: center; cursor: pointer; z-index: 1; }
+.rs-reel-progress::before { content: ''; position: absolute; inset: 50% 0 auto 0; height: 4px; transform: translateY(-50%); border-radius: 999px; background: rgb(255 255 255 / .3); }
+.rs-reel-progress span { position: relative; height: 4px; border-radius: 999px; background: var(--spk-accent, #e8703a); transition: width .25s linear, height .15s; }
+.rs-reel-progress:hover::before, .rs-reel-progress:hover span { height: 6px; }
+.rs-reel-actions { display: flex; flex-direction: column; gap: .7rem; padding-bottom: 1.4rem; }
+.rs-reel-actions > * { display: grid; place-items: center; width: 2.9rem; height: 2.9rem; border: 0; border-radius: 999px; background: var(--spk-surface-2, rgb(127 127 127 / .16)); color: var(--spk-text-primary); cursor: pointer; transition: background .15s, transform .15s; }
+.rs-reel-actions > *:hover { background: color-mix(in srgb, var(--spk-text-primary) 18%, transparent); }
+.rs-reel-actions > *:active { transform: scale(.92); }
+.rs-reel-actions .is-on { color: var(--rs-palette-accent, #f26b1d); }
+.rs-reels-sort { position: absolute; z-index: 2; top: .75rem; right: 1.25rem; display: flex; gap: .25rem; padding: .25rem; border-radius: 999px; background: var(--spk-surface-2, rgb(127 127 127 / .16)); backdrop-filter: blur(10px); }
+.rs-reels-sort button { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .75rem; border: 0; border-radius: 999px; background: transparent; color: var(--spk-text-secondary, inherit); font: inherit; font-size: .8rem; cursor: pointer; }
+.rs-reels-sort button[aria-pressed="true"] { background: var(--spk-text-primary); color: var(--spk-canvas); }
+.rs-reels-nav { position: absolute; z-index: 2; right: 1.25rem; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: .75rem; }
+.rs-reels-nav button { display: grid; place-items: center; width: 3rem; height: 3rem; border: 0; border-radius: 999px; background: var(--spk-surface-2, rgb(127 127 127 / .16)); color: var(--spk-text-primary); cursor: pointer; }
+.rs-reels-nav button:disabled { opacity: .35; cursor: default; }
+.rs-reels-empty { display: grid; place-content: center; justify-items: center; gap: .5rem; text-align: center; color: var(--spk-text-secondary, inherit); padding: 1rem; }
+.rs-reels-empty h1 { margin: .5rem 0 0; font-size: 1.4rem; color: var(--spk-text-primary); }
+.rs-reels-empty p { margin: 0; max-width: 26rem; }
+
+/* Phones: the reel fills the screen and its buttons float over the video, as in Shorts and Reels. */
+@media (max-width: 760px) {
+  .rs-reels { --rs-reels-inset: 0px; }
+  .rs-reels-nav { display: none; }
+  .rs-reel { padding: 0; }
+  .rs-reel-stage { position: relative; width: 100%; }
+  .rs-reel-frame { width: 100%; aspect-ratio: auto; max-width: none; border-radius: 0; }
+  video.rs-reel-video { object-fit: cover; }
+  .rs-reel-actions { position: absolute; right: .6rem; bottom: 4.5rem; padding: 0; z-index: 1; }
+  .rs-reel-actions > * { background: rgb(0 0 0 / .4); color: #fff; }
+  .rs-reel-caption { padding-top: 3.6rem; } /* below the order picker */
+  .rs-reels-sort { right: auto; left: 50%; transform: translateX(-50%); background: rgb(0 0 0 / .4); }
+  .rs-reels-sort button { color: #fff; }
+  .rs-reels-sort button[aria-pressed="true"] { background: #fff; color: #000; }
+}

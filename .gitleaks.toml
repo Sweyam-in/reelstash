@@ -1,0 +1,18 @@
+# Secret scanning config (gitleaks). All default rules stay on.
+# Tests hold fake passwords/keys that trip the generic heuristic, so only that
+# rule ignores test paths; real-format detectors (AWS, GitHub, private keys...)
+# still fail the build in tests. For a one-off false positive elsewhere, append
+# `// gitleaks:allow` to the line instead.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Fake credentials in tests and fixtures"
+paths = [
+  '''(^|/)[^/]*_test\.go$''',
+  '''(^|/)[^/]*\.(test|spec)\.[cm]?[jt]sx?$''',
+  '''(^|/)(test_[^/]*|[^/]*_test)\.py$''',
+  '''(^|/)(__tests__|__mocks__|__fixtures__|tests?|testdata|fixtures|e2e)/''',
+]

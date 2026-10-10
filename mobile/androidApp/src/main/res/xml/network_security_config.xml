@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ReelStash is self-hosted: servers are often plain HTTP on the home network
+     (http://nas.local:8000) or HTTPS with a certificate from a private CA the
+     user installed. Allow both; public HTTPS still validates as usual. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

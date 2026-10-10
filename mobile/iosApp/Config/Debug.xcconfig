@@ -1,0 +1,5 @@
+// Simulator builds run without an Apple Developer team. A physical iPhone or iPad
+// uses Automatic signing; pick your Personal Team in Xcode.
+CODE_SIGN_IDENTITY[sdk=iphonesimulator*] = -
+CODE_SIGNING_REQUIRED[sdk=iphonesimulator*] = NO
+CODE_SIGNING_ALLOWED[sdk=iphonesimulator*] = NO

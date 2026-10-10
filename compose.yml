@@ -1,0 +1,117 @@
+# Local stack. Run with scripts/dev-docker.sh (adds --env-file .env.local).
+# To install ReelStash for real use, see docs/install.md (scripts/install.sh).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-reelstash}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-reelstash}
+      - POSTGRES_DB=${POSTGRES_DB:-reelstash}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reelstash} -d ${POSTGRES_DB:-reelstash}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  reelstash:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_ROOT:-./data/media}:/mnt          # set MEDIA_ROOT in .env.local
+      - ./data/thumbnails:/app-data/thumbnails
+      - ./data/posters:/app-data/posters
+      - ./data/sprites:/app-data/sprites
+      - ./data/previews:/app-data/previews
+      - ./data/subtitles:/app-data/subtitles
+      - ./data/plugins:/app-data/plugins
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-reelstash}:${POSTGRES_PASSWORD:-reelstash}@postgres:5432/${POSTGRES_DB:-reelstash}?sslmode=disable
+      - REELSTASH_ADDR=:8902
+      - TZ=${TZ:-UTC}
+      - REELSTASH_THUMBNAIL_DIR=/app-data/thumbnails
+      - REELSTASH_POSTER_DIR=/app-data/posters
+      - REELSTASH_SPRITE_DIR=/app-data/sprites
+      - REELSTASH_PREVIEW_DIR=/app-data/previews
+      - REELSTASH_SUBTITLE_DIR=/app-data/subtitles
+      - EMERGENCY_LOCAL_AUTH=${EMERGENCY_LOCAL_AUTH:-false}
+      - EMERGENCY_LOCAL_PASSWORD=${EMERGENCY_LOCAL_PASSWORD:-changeme}
+      - REELSTASH_PLUGIN_DIR=/app-data/plugins
+      - REELSTASH_ADMIN_USERNAME=${REELSTASH_ADMIN_USERNAME:-}
+      - REELSTASH_ADMIN_PASSWORD=${REELSTASH_ADMIN_PASSWORD:-}
+      - REELSTASH_SERVER_NAME=${REELSTASH_SERVER_NAME:-ReelStash}
+      - REELSTASH_PUBLIC_ORIGIN=${REELSTASH_PUBLIC_ORIGIN:-http://localhost:8902}
+      - REELSTASH_MEDIA_URLS=${REELSTASH_MEDIA_URLS:-}
+      - REELSTASH_ADMIN_URLS=${REELSTASH_ADMIN_URLS:-}
+      # Downloads workspace: set REELSTASH_QBIT_URL=http://qbittorrent:8080 when
+      # running the downloads profile below.
+      - REELSTASH_QBIT_URL=${REELSTASH_QBIT_URL:-}
+      - REELSTASH_QBIT_USERNAME=${QBIT_USERNAME:-admin}
+      - REELSTASH_QBIT_PASSWORD=${QBIT_PASSWORD:-}
+    ports:
+      - "8902:8902"
+
+  # reelstash-app: the media library.
+  ui:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3091:3091"
+    depends_on:
+      - reelstash
+
+  # reelstash-admin: ReelStash Admin, Files and Downloads, built and run on its own.
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3092:3091"
+    depends_on:
+      - reelstash
+
+  # Optional: qBittorrent for the Downloads workspace. Turn it on with
+  # COMPOSE_PROFILES=downloads and QBIT_PASSWORD (6+ characters) in .env.local.
+  # It mounts the same MEDIA_ROOT at /mnt, so both apps see identical paths.
+  # qbittorrent-init writes QBIT_USERNAME/QBIT_PASSWORD into its config first.
+  qbittorrent-init:
+    build: ./backend
+    profiles: ["downloads"]
+    entrypoint: ["reelstash-server", "qbit-init", "/config/qBittorrent/qBittorrent.conf"]
+    environment:
+      - REELSTASH_QBIT_USERNAME=${QBIT_USERNAME:-admin}
+      - REELSTASH_QBIT_PASSWORD=${QBIT_PASSWORD:-}
+    volumes:
+      - ./data/qbittorrent:/config
+    restart: "no"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:${QBIT_IMAGE_TAG:-latest}
+    profiles: ["downloads"]
+    restart: unless-stopped
+    depends_on:
+      qbittorrent-init:
+        condition: service_completed_successfully
+    environment:
+      - PUID=${MEDIA_UID:-1000}
+      - PGID=${MEDIA_GID:-1000}
+      - UMASK=002
+      - TZ=${TZ:-UTC}
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=${TORRENT_PORT:-6881}
+    volumes:
+      - ${MEDIA_ROOT:-./data/media}:/mnt
+      - ./data/qbittorrent:/config
+    ports:
+      # qBittorrent's own web UI, for the host or LAN (127.0.0.1 = this machine only).
+      - "${QBIT_BIND_ADDR:-0.0.0.0}:${QBIT_WEBUI_PORT:-8080}:8080"
+      - "${TORRENT_PORT:-6881}:${TORRENT_PORT:-6881}"
+      - "${TORRENT_PORT:-6881}:${TORRENT_PORT:-6881}/udp"
