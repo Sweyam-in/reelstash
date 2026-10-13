@@ -45,6 +45,11 @@ import app.reelstash.android.ui.common.MediaCard
 import app.reelstash.android.ui.common.MessageBox
 import app.reelstash.android.ui.common.PagedViewModel
 import app.reelstash.android.ui.common.ServerImage
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.gridMinCell
+import app.reelstash.android.ui.layout.gridMinCellLandscape
+import app.reelstash.android.ui.layout.gutter
+import app.reelstash.android.ui.layout.rsFocusTarget
 import app.reelstash.shared.api.MediaUrls
 import app.reelstash.shared.model.MediaItem
 import app.reelstash.shared.model.Performer
@@ -52,7 +57,7 @@ import app.reelstash.shared.model.Series
 
 /**
  * An endless grid over a [PagedViewModel]. Columns adapt to the width, so a
- * tablet shows more of them; the next page loads as the end comes into view.
+ * tablet or TV shows more of them; the next page loads as the end comes into view.
  */
 @Composable
 fun <T> PagedGrid(
@@ -66,6 +71,7 @@ fun <T> PagedGrid(
 ) {
     val state by paged.state.collectAsStateWithLifecycle()
     val grid = rememberLazyGridState()
+    val gutter = LocalFormFactor.current.gutter
     val nearEnd by remember {
         derivedStateOf {
             val info = grid.layoutInfo
@@ -83,7 +89,7 @@ fun <T> PagedGrid(
             columns = GridCells.Adaptive(minCellWidth),
             state = grid,
             modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(gutter),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -103,14 +109,16 @@ fun <T> PagedGrid(
 
 @Composable
 fun MediaGrid(paged: PagedViewModel<MediaItem>, urls: MediaUrls, shape: CardShape, emptyTitle: String, onOpen: (MediaItem) -> Unit, modifier: Modifier = Modifier, header: (LazyGridScope.() -> Unit)? = null) {
-    PagedGrid(paged, if (shape == CardShape.Poster) 110.dp else 170.dp, emptyTitle, modifier, header, key = { it.id }) { item ->
+    val form = LocalFormFactor.current
+    val min = if (shape == CardShape.Poster) form.gridMinCell else form.gridMinCellLandscape
+    PagedGrid(paged, min, emptyTitle, modifier, header, key = { it.id }) { item ->
         MediaCard(item, urls, shape, onClick = { onOpen(item) })
     }
 }
 
 @Composable
 fun SeriesCard(series: Series, urls: MediaUrls, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick)) {
+    Column(Modifier.rsFocusTarget(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp))) {
             ServerImage(urls.seriesImage(series.id, series.posterImageId), Modifier.fillMaxSize()) {
                 ToneArt("s${series.id}", series.name, series.studioName, Modifier.fillMaxSize(), glyphSize = 56.dp)
@@ -125,7 +133,10 @@ fun SeriesCard(series: Series, urls: MediaUrls, onClick: () -> Unit) {
 
 @Composable
 fun PerformerCard(performer: Performer, urls: MediaUrls, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier.rsFocusTarget(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape)) {
             ServerImage(performer.profileImageId?.let { urls.performerImage(performer.id, it) }, Modifier.fillMaxSize()) {
                 ToneArt("p${performer.id}", performer.name, null, Modifier.fillMaxSize(), glyphSize = 40.dp)

@@ -72,12 +72,17 @@ import app.reelstash.android.ui.common.displayTitle
 import app.reelstash.android.ui.common.formatClock
 import app.reelstash.android.ui.common.formatDuration
 import app.reelstash.android.ui.common.rememberLoad
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.gutter
+import app.reelstash.android.ui.layout.isWide
+import app.reelstash.android.ui.layout.rsFocusTarget
 import app.reelstash.android.ui.main.LocalServer
 import app.reelstash.android.ui.main.Navigator
 import app.reelstash.android.ui.theme.BrandGradient
 import app.reelstash.android.ui.theme.BrandOrange
 import app.reelstash.android.ui.theme.EyebrowStyle
 import app.reelstash.android.ui.theme.Rs
+import app.reelstash.android.ui.theme.Tone
 import app.reelstash.android.ui.theme.Tones
 import app.reelstash.android.ui.theme.sectionTone
 import app.reelstash.android.ui.theme.toneFor
@@ -128,46 +133,50 @@ fun MediaDetailScreen(id: Long, nav: Navigator) {
         }
     }
 
+    val form = LocalFormFactor.current
+    val gutter = form.gutter
     Column(Modifier.fillMaxSize().ambientGlow(toneFor(id).color, .5f)) {
         RsTopBar(nav, onBack = { nav.back() }) {}
         LoadContent(detail.state, detail::retry) { item ->
             val tone = toneFor(item.id)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                Column(Modifier.widthIn(max = 880.dp).padding(horizontal = 16.dp)) {
-                    Artwork(item, server.client.urls) { nav.play(item.id) }
-                    Spacer(Modifier.height(22.dp))
-                    (item.studioName ?: item.seriesName)?.let {
-                        Eyebrow(it, Rs.colors.toneInk(tone.color), dot = false, modifier = Modifier.clickable {
-                            if (item.studioName == null) item.seriesId?.let(nav::openSeries)
-                        })
-                        Spacer(Modifier.height(8.dp))
+                Column(Modifier.widthIn(max = if (form.isWide) 1100.dp else 880.dp).padding(horizontal = gutter)) {
+                    if (form.isWide) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                            Artwork(item, server.client.urls, Modifier.weight(1.15f)) { nav.play(item.id) }
+                            Column(Modifier.weight(1f).padding(top = 8.dp)) {
+                                DetailHeader(item, tone, nav)
+                                Spacer(Modifier.height(20.dp))
+                                Rating(item, onChange = detail.vm::set)
+                                Spacer(Modifier.height(18.dp))
+                                Actions(item, nav, onChange = detail.vm::set)
+                                item.description?.takeIf { it.isNotBlank() }?.let { Description(it) }
+                            }
+                        }
+                        Spacer(Modifier.height(26.dp))
+                        HorizontalDivider(color = Rs.colors.border)
+                        Spacer(Modifier.height(24.dp))
+                        Facts(item, nav)
+                    } else {
+                        Artwork(item, server.client.urls) { nav.play(item.id) }
+                        Spacer(Modifier.height(22.dp))
+                        DetailHeader(item, tone, nav)
+                        Spacer(Modifier.height(20.dp))
+                        Rating(item, onChange = detail.vm::set)
+                        Spacer(Modifier.height(18.dp))
+                        Actions(item, nav, onChange = detail.vm::set)
+                        item.description?.takeIf { it.isNotBlank() }?.let { Description(it) }
+                        Spacer(Modifier.height(26.dp))
+                        HorizontalDivider(color = Rs.colors.border)
+                        Spacer(Modifier.height(24.dp))
+                        Facts(item, nav)
                     }
-                    Text(displayTitle(item), style = MaterialTheme.typography.headlineLarge)
-                    val meta = listOfNotNull(
-                        item.episodeLabel,
-                        item.year?.toString(),
-                        formatDuration(item.durationSeconds ?: item.files.firstOrNull()?.durationSeconds),
-                        resolution(item),
-                    ).joinToString("  ·  ")
-                    if (meta.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(meta, style = MaterialTheme.typography.bodyMedium, color = Rs.colors.textSecondary)
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Rating(item, onChange = detail.vm::set)
-                    Spacer(Modifier.height(18.dp))
-                    Actions(item, nav, onChange = detail.vm::set)
-                    item.description?.takeIf { it.isNotBlank() }?.let { Description(it) }
-                    Spacer(Modifier.height(26.dp))
-                    HorizontalDivider(color = Rs.colors.border)
-                    Spacer(Modifier.height(24.dp))
-                    Facts(item, nav)
                 }
                 if (item.cast.isNotEmpty() || item.crew.isNotEmpty()) {
                     Spacer(Modifier.height(26.dp))
                     SectionHeader("Cast & crew", "The people", Tones[7])
                     Spacer(Modifier.height(12.dp))
-                    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LazyRow(contentPadding = PaddingValues(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(item.cast + item.crew, key = { "${it.id}:${it.job}" }) { p -> PersonChip(p, server.client.urls) { nav.openPerson(p.id) } }
                     }
                 }
@@ -179,6 +188,27 @@ fun MediaDetailScreen(id: Long, nav: Navigator) {
                 Spacer(Modifier.height(32.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun DetailHeader(item: MediaItem, tone: Tone, nav: Navigator) {
+    (item.studioName ?: item.seriesName)?.let {
+        Eyebrow(it, Rs.colors.toneInk(tone.color), dot = false, modifier = Modifier.clickable {
+            if (item.studioName == null) item.seriesId?.let(nav::openSeries)
+        })
+        Spacer(Modifier.height(8.dp))
+    }
+    Text(displayTitle(item), style = MaterialTheme.typography.headlineLarge)
+    val meta = listOfNotNull(
+        item.episodeLabel,
+        item.year?.toString(),
+        formatDuration(item.durationSeconds ?: item.files.firstOrNull()?.durationSeconds),
+        resolution(item),
+    ).joinToString("  ·  ")
+    if (meta.isNotEmpty()) {
+        Spacer(Modifier.height(6.dp))
+        Text(meta, style = MaterialTheme.typography.bodyMedium, color = Rs.colors.textSecondary)
     }
 }
 
@@ -194,10 +224,12 @@ private fun resolution(item: MediaItem): String? {
 
 /** The artwork card at the top, with a play mark over it. */
 @Composable
-private fun Artwork(item: MediaItem, urls: MediaUrls, onPlay: () -> Unit) {
+private fun Artwork(item: MediaItem, urls: MediaUrls, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     val art = if (item.backdropImageId != null) urls.artwork(item.id, MediaUrls.Artwork.Backdrop, item.backdropImageId) else urls.artwork(item.id, MediaUrls.Artwork.Thumbnail)
     Box(
-        Modifier.fillMaxWidth().aspectRatio(16f / 10f).clip(RoundedCornerShape(18.dp))
+        modifier.fillMaxWidth().aspectRatio(16f / 10f)
+            .rsFocusTarget(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
             .border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(18.dp))
             .clickable(enabled = item.playable, onClick = onPlay),
     ) {

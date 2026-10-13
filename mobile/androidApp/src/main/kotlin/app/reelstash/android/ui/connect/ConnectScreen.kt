@@ -37,6 +37,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,12 +61,16 @@ import app.reelstash.android.R
 import app.reelstash.android.container
 import app.reelstash.android.ui.common.GradientButton
 import app.reelstash.android.ui.common.ambientGlow
+import app.reelstash.android.ui.layout.FormFactor
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.rememberFormFactor
 import app.reelstash.android.ui.theme.Rs
 
 /** Adding a server: its address, then signing in by password or by a code approved on the web. */
 @Composable
 fun ConnectScreen(canCancel: Boolean, onCancel: () -> Unit) {
     val context = LocalContext.current
+    val form = rememberFormFactor()
     val vm = viewModel { ConnectViewModel(context.container) }
     val state by vm.state.collectAsStateWithLifecycle()
 
@@ -72,18 +78,22 @@ fun ConnectScreen(canCancel: Boolean, onCancel: () -> Unit) {
         if (state.server != null) vm.back() else onCancel()
     }
 
+    val maxWidth = if (form == FormFactor.Tv) 640.dp else 480.dp
+    val pad = if (form == FormFactor.Tv) 48.dp else 24.dp
     Box(Modifier.fillMaxSize().ambientGlow(Rs.colors.glow).safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
         Column(
-            Modifier.widthIn(max = 480.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
+            Modifier.widthIn(max = maxWidth).fillMaxWidth().verticalScroll(rememberScrollState()).padding(pad),
         ) {
             if (state.server != null || canCancel) {
                 IconButton(onClick = { if (state.server != null) vm.back() else onCancel() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                 }
-            } else Spacer(Modifier.height(48.dp))
+            } else Spacer(Modifier.height(if (form == FormFactor.Tv) 24.dp else 48.dp))
             Spacer(Modifier.height(24.dp))
             val server = state.server
-            if (server == null) AddressStep(state, vm) else SignInStep(state, server, vm)
+            CompositionLocalProvider(LocalFormFactor provides form) {
+                if (server == null) AddressStep(state, vm) else SignInStep(state, server, vm, preferPairing = form == FormFactor.Tv)
+            }
         }
     }
 }
@@ -119,8 +129,12 @@ private fun AddressStep(state: ConnectUiState, vm: ConnectViewModel) {
 }
 
 @Composable
-private fun SignInStep(state: ConnectUiState, server: FoundServer, vm: ConnectViewModel) {
-    var showPassword by rememberSaveable { mutableStateOf(server.info.passwordLogin) }
+private fun SignInStep(state: ConnectUiState, server: FoundServer, vm: ConnectViewModel, preferPairing: Boolean = false) {
+    // TV remotes make typing painful — lead with a pairing code, password is the fallback.
+    var showPassword by rememberSaveable { mutableStateOf(server.info.passwordLogin && !preferPairing) }
+    LaunchedEffect(showPassword, preferPairing) {
+        if (!showPassword && state.pairing == null && state.pairingError == null) vm.startPairing()
+    }
     Text("Sign in to ${server.info.name}", style = MaterialTheme.typography.titleLarge)
     Text(server.baseUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(24.dp))
@@ -138,6 +152,14 @@ private fun SignInStep(state: ConnectUiState, server: FoundServer, vm: ConnectVi
             Text("Sign in with a code instead")
         }
     } else {
+        if (preferPairing) {
+            Text(
+                "Approve this code on the web from your phone or computer — no typing on the TV remote.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+        }
         PairingPanel(state, server, vm)
         if (server.info.passwordLogin) {
             Spacer(Modifier.height(12.dp))

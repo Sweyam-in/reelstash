@@ -45,6 +45,9 @@ import app.reelstash.android.ui.common.currentLibrary
 import app.reelstash.android.ui.common.rememberLibraries
 import app.reelstash.android.ui.common.rememberLoad
 import app.reelstash.android.ui.common.valueOrNull
+import app.reelstash.android.ui.layout.FormFactor
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.gutter
 import app.reelstash.android.ui.main.LocalServer
 import app.reelstash.android.ui.main.Navigator
 import app.reelstash.android.ui.theme.Rs
@@ -116,9 +119,15 @@ fun HomeScreen(nav: Navigator) {
 
     var pulled by remember { mutableStateOf(false) }
     LaunchedEffect(home.state) { if (home.state !is Load.Loading) pulled = false }
+    val form = LocalFormFactor.current
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val heroHeight = (LocalConfiguration.current.screenHeightDp * .62f).dp.coerceIn(380.dp, 560.dp)
+    val heroHeight = when (form) {
+        FormFactor.Phone -> (LocalConfiguration.current.screenHeightDp * .62f).dp.coerceIn(380.dp, 560.dp)
+        FormFactor.Tablet -> (LocalConfiguration.current.screenHeightDp * .55f).dp.coerceIn(420.dp, 620.dp)
+        FormFactor.Tv -> (LocalConfiguration.current.screenHeightDp * .58f).dp.coerceIn(400.dp, 640.dp)
+    }
     val canvas = Rs.colors.canvas
+    val facePad = form.gutter
 
     Box(Modifier.fillMaxSize()) {
         PullToRefreshBox(isRefreshing = pulled, onRefresh = { pulled = true; home.retry() }, modifier = Modifier.fillMaxSize()) {
@@ -146,7 +155,7 @@ fun HomeScreen(nav: Navigator) {
                                 actionLabel = "All", onAction = nav::openPeople,
                             )
                             Spacer(Modifier.height(12.dp))
-                            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            LazyRow(contentPadding = PaddingValues(horizontal = facePad), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 items(data.faces, key = { it.id }) { p -> PersonChip(p, client.urls) { nav.openPerson(p.id) } }
                             }
                         }

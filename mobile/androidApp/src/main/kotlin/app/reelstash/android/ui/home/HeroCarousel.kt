@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,11 +41,15 @@ import app.reelstash.android.ui.common.GradientButton
 import app.reelstash.android.ui.common.MediaArt
 import app.reelstash.android.ui.common.PillButton
 import app.reelstash.android.ui.common.displayTitle
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.gutter
+import app.reelstash.android.ui.layout.rsFocusTarget
 import app.reelstash.android.ui.theme.BrandGradient
 import app.reelstash.android.ui.theme.Rs
 import app.reelstash.android.ui.theme.toneFor
 import app.reelstash.shared.api.MediaUrls
 import app.reelstash.shared.model.MediaItem
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 /** How long each slide stays, as on the web. */
 private const val SLIDE_MS = 7000
@@ -75,6 +80,7 @@ fun HeroCarousel(
         pager.animateScrollToPage((pager.currentPage + 1) % items.size)
     }
     val canvas = Rs.colors.canvas
+    val gutter = LocalFormFactor.current.gutter
 
     Box(Modifier.fillMaxWidth().height(height + topInset)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { items[it].id }) { page ->
@@ -89,7 +95,7 @@ fun HeroCarousel(
                         Brush.verticalGradient(0f to canvas.copy(alpha = .55f), .22f to Color.Transparent, .5f to canvas.copy(alpha = .35f), .78f to canvas.copy(alpha = .92f), 1f to canvas),
                     ),
                 )
-                Column(Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 18.dp, bottom = 34.dp)) {
+                Column(Modifier.align(Alignment.BottomStart).padding(start = gutter, end = gutter, bottom = 34.dp).widthIn(max = 720.dp)) {
                     Eyebrow(eyebrow, Rs.colors.toneInk(tone.color))
                     Spacer(Modifier.height(10.dp))
                     Text(displayTitle(item), style = MaterialTheme.typography.displaySmall, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -99,14 +105,14 @@ fun HeroCarousel(
                     Text(meta, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        GradientButton("Play", onClick = { onPlay(item) }, icon = Icons.Filled.PlayArrow)
-                        PillButton("Details", onClick = { onOpen(item) }, icon = Icons.AutoMirrored.Filled.ArrowForward)
+                        GradientButton("Play", onClick = { onPlay(item) }, icon = Icons.Filled.PlayArrow, modifier = Modifier.rsFocusTarget(RoundedCornerShape(50)))
+                        PillButton("Details", onClick = { onOpen(item) }, icon = Icons.AutoMirrored.Filled.ArrowForward, modifier = Modifier.rsFocusTarget(RoundedCornerShape(50)))
                     }
                 }
             }
         }
         if (items.size > 1) {
-            Row(Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.align(Alignment.BottomStart).padding(start = gutter, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 items.indices.forEach { i ->
                     Box(Modifier.width(if (i == pager.currentPage) 30.dp else 18.dp).height(3.dp).clip(CircleShape).background(Color.White.copy(alpha = .22f))) {
                         val fill = when {

@@ -53,6 +53,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.reelstash.android.ui.layout.LocalFormFactor
+import app.reelstash.android.ui.layout.gutter
+import app.reelstash.android.ui.layout.isWide
+import app.reelstash.android.ui.layout.landscapeCardWidth
+import app.reelstash.android.ui.layout.posterCardWidth
+import app.reelstash.android.ui.layout.rsFocusTarget
 import app.reelstash.android.ui.theme.BrandGradient
 import app.reelstash.android.ui.theme.BrandOrange
 import app.reelstash.android.ui.theme.DisplayFamily
@@ -202,8 +208,9 @@ fun SectionHeader(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
+    val gutter = LocalFormFactor.current.gutter
     val ink = tone?.let { Rs.colors.toneInk(it) } ?: Rs.colors.accentText
-    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.Bottom) {
+    Row(modifier.fillMaxWidth().padding(horizontal = gutter), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
             eyebrow?.let {
                 Eyebrow(it, ink)
@@ -343,7 +350,12 @@ fun MediaCard(
 ) {
     val c = Rs.colors
     val toneColor = tone ?: toneFor(item.id)
-    Column(modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
+    Column(
+        modifier
+            .rsFocusTarget(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+    ) {
         Box(Modifier.fillMaxWidth().aspectRatio(shape.ratio).clip(RoundedCornerShape(14.dp))) {
             MediaArt(item, urls.artwork(item.id, shape.artwork, if (shape == CardShape.Poster) item.posterImageId else null), Modifier.fillMaxSize(), glyphSize = if (shape == CardShape.Poster) 56.dp else 64.dp)
             if (isNew(item)) {
@@ -388,17 +400,20 @@ fun MediaRow(
     onOpen: (MediaItem) -> Unit,
     eyebrow: String? = null,
     tone: Tone? = null,
-    cardWidth: Dp = if (shape == CardShape.Poster) 132.dp else 232.dp,
+    cardWidth: Dp? = null,
     onViewAll: (() -> Unit)? = null,
     kicker: (MediaItem) -> String? = { kickerFor(it) },
 ) {
     if (items.isEmpty()) return
+    val form = LocalFormFactor.current
+    val width = cardWidth ?: if (shape == CardShape.Poster) form.posterCardWidth else form.landscapeCardWidth
+    val gutter = form.gutter
     Column(Modifier.padding(vertical = 14.dp)) {
         SectionHeader(title, eyebrow, tone?.color, actionLabel = if (onViewAll != null) "View all" else null, onAction = onViewAll)
         Spacer(Modifier.height(14.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyRow(contentPadding = PaddingValues(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.id }) { item ->
-                MediaCard(item, urls, shape, onClick = { onOpen(item) }, modifier = Modifier.width(cardWidth), kicker = kicker(item), tone = tone ?: toneFor(item.id))
+                MediaCard(item, urls, shape, onClick = { onOpen(item) }, modifier = Modifier.width(width), kicker = kicker(item), tone = tone ?: toneFor(item.id))
             }
         }
     }
@@ -407,7 +422,16 @@ fun MediaRow(
 @Composable
 fun PersonChip(person: Person, urls: MediaUrls, onClick: () -> Unit) {
     val tone = toneFor("p${person.id}")
-    Column(Modifier.width(88.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val chipWidth = if (LocalFormFactor.current.isWide) 104.dp else 88.dp
+    Column(
+        Modifier
+            .width(chipWidth)
+            .rsFocusTarget(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(Modifier.size(76.dp).clip(CircleShape).border(2.dp, tone.color.copy(alpha = .55f), CircleShape).padding(3.dp).clip(CircleShape)) {
             ServerImage(person.profileImageId?.let { urls.performerImage(person.id, it) }, Modifier.fillMaxSize()) {
                 ToneArt("p${person.id}", person.name, null, Modifier.fillMaxSize(), glyphSize = 30.dp)

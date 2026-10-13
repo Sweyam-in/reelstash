@@ -4,9 +4,10 @@ Native media apps for ReelStash: browse and play from any ReelStash server, self
 
 | Target | Status |
 | --- | --- |
-| Android phones and tablets | MVP 1 (`androidApp`) |
+| Android phones and tablets | MVP 1 (`androidApp`): phones keep the icon bottom bar; tablets (≥600dp) use a labelled navigation rail, wider gutters, and a two-column title detail. |
 | iPhone and iPad | Dev build (`iosApp`): SwiftUI on the shared Kotlin client. iPad uses a sidebar; iPhone uses the bottom bar. |
-| Android TV, Apple TV | Later |
+| Android TV | Same `androidApp` APK: leanback launcher + banner, side rail, D-pad focus rings, overscan margins, pairing-first sign-in. Reels tab is hidden (vertical swipe needs a remote redesign). |
+| Apple TV | Later |
 
 ## Layout
 
@@ -38,7 +39,7 @@ The Xcode project passes `-Preelstash.ios=true` itself, so `gradle.properties` c
   - Landscape for wide videos, portrait for reels, and picture-in-picture.
 - **PIN lock**: if the account has one, the app asks for it, and the server enforces it.
 
-Not in MVP 1: admin features, offline downloads, Chromecast, a vertical-swipe reels player, playlist editing, and TV. Sign-in tokens live in the app's private storage, which backups exclude; encrypting them with the Android Keystore is a follow-up.
+Not in MVP 1: admin features, offline downloads, Chromecast, a vertical-swipe reels player on TV, playlist editing, and Apple TV. Sign-in tokens live in the app's private storage, which backups exclude; encrypting them with the Android Keystore is a follow-up.
 
 ## Build and run
 
