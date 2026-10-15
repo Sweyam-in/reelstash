@@ -1,6 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+}
+
+val keystorePropertiesFile = rootProject.file("release/keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -8,11 +17,27 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.reelstash.android"
+        applicationId = "com.sweyam.reelstash"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                val storePath = keystoreProperties.getProperty("storeFile")
+                    ?: error("release/keystore.properties is missing storeFile")
+                storeFile = rootProject.file(storePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                    ?: error("release/keystore.properties is missing storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                    ?: error("release/keystore.properties is missing keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                    ?: error("release/keystore.properties is missing keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -20,6 +45,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -30,6 +58,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    bundle {
+        language {
+            // One language split is enough for a single-locale app.
+            enableSplit = false
+        }
     }
 }
 

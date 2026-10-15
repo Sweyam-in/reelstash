@@ -1,5 +1,7 @@
 package app.reelstash.android.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,10 +23,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -180,9 +185,23 @@ fun SettingsScreen(nav: Navigator) {
             }
 
             item {
+                Section("About", Tones[1]) {
+                    Choice("Open-source licences", "GPL v3 app, SIL OFL fonts, Apache libraries", Icons.Outlined.Gavel, false) {
+                        nav.openLicenses()
+                    }
+                    Choice("Privacy policy", "sweyam.com", Icons.Outlined.Policy, false) {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://sweyam.com/products/reelstash/privacy/")))
+                    }
+                    Choice("Terms of use", "sweyam.com", Icons.Outlined.Description, false) {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://sweyam.com/products/reelstash/terms/")))
+                    }
+                }
+            }
+
+            item {
                 Column(Modifier.fillMaxWidth().padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("ReelStash for Android · ${BuildInfo.versionName(context)}", style = MaterialTheme.typography.bodySmall, color = Rs.colors.textTertiary)
-                    Text("Fonts: Bricolage Grotesque and Inter, SIL Open Font License", style = MaterialTheme.typography.labelSmall, color = Rs.colors.textTertiary)
+                    Text("com.sweyam.reelstash", style = MaterialTheme.typography.labelSmall, color = Rs.colors.textTertiary)
                 }
             }
         }

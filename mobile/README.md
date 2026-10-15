@@ -39,7 +39,16 @@ The Xcode project passes `-Preelstash.ios=true` itself, so `gradle.properties` c
   - Landscape for wide videos, portrait for reels, and picture-in-picture.
 - **PIN lock**: if the account has one, the app asks for it, and the server enforces it.
 
-Not in MVP 1: admin features, offline downloads, Chromecast, a vertical-swipe reels player on TV, playlist editing, and Apple TV. Sign-in tokens live in the app's private storage, which backups exclude; encrypting them with the Android Keystore is a follow-up.
+Not in MVP 1: admin features, offline downloads, Chromecast, a vertical-swipe reels player on TV, playlist editing, and Apple TV. Sign-in tokens live in the app's private storage (excluded from backup) and are sealed with the Android Keystore.
+
+## Production AAB (Google Play)
+
+```bash
+cd mobile
+scripts/build-release-aab.sh
+```
+
+First run creates a Play **upload** keystore under `release/` (gitignored). The signed bundle is copied to `release/reelstash-<version>-release.aab`. Back up the keystore and passwords. Store listing, Data safety, and privacy policy steps: [PLAY_STORE.md](PLAY_STORE.md). Policy text to host: [docs/privacy-policy.md](docs/privacy-policy.md).
 
 ## Build and run
 

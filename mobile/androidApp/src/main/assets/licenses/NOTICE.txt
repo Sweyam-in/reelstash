@@ -1,0 +1,56 @@
+ReelStash for Android — third-party notices
+==========================================
+
+ReelStash itself is free software under the GNU General Public License v3.
+Source: https://github.com/sweyam-in/reelstash
+
+This file lists major open-source components shipped in the Android / Android TV
+client (com.sweyam.reelstash). Full licence texts for the fonts are in sibling
+files in this folder. Most libraries below are Apache License 2.0.
+
+Hosted copy (also used from Settings):
+https://sweyam.com/products/reelstash/licenses/
+
+-----------------------------------------------------------------------------
+Fonts (SIL Open Font License 1.1)
+-----------------------------------------------------------------------------
+Bricolage Grotesque — see bricolage-grotesque-OFL.txt
+Inter — see inter-OFL.txt
+
+-----------------------------------------------------------------------------
+Kotlin / JetBrains (Apache License 2.0)
+-----------------------------------------------------------------------------
+Kotlin standard library and compiler
+kotlinx.coroutines
+kotlinx.serialization
+
+-----------------------------------------------------------------------------
+Ktor (Apache License 2.0)
+-----------------------------------------------------------------------------
+io.ktor:ktor-client-* (HTTP client used by the shared Kotlin module)
+
+-----------------------------------------------------------------------------
+Square (Apache License 2.0)
+-----------------------------------------------------------------------------
+OkHttp
+
+-----------------------------------------------------------------------------
+AndroidX / Jetpack / Compose (Apache License 2.0)
+-----------------------------------------------------------------------------
+androidx.core, activity, fragment, lifecycle, navigation, datastore,
+splashscreen, biometric
+Jetpack Compose UI, Material 3, Material Icons, adaptive navigation suite
+
+-----------------------------------------------------------------------------
+Media / images (Apache License 2.0)
+-----------------------------------------------------------------------------
+AndroidX Media3 (ExoPlayer, HLS, UI, OkHttp data source)
+Coil 3 (compose + OkHttp network)
+
+-----------------------------------------------------------------------------
+Note
+-----------------------------------------------------------------------------
+Transitive dependencies may add further Apache-2.0 / MIT / BSD components
+through the Android Gradle resolution. This NOTICE is maintained for the
+direct libraries listed in mobile/gradle/libs.versions.toml. Source for
+GPL-covered ReelStash code remains available at the repository above.

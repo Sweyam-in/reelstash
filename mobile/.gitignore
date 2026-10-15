@@ -10,3 +10,8 @@ captures/
 .dev/
 iosApp/**/xcuserdata/
 iosApp/.derived/
+*.jks
+*.keystore
+release/keystore.properties
+release/*.aab
+

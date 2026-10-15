@@ -122,6 +122,7 @@ class AppContainer(context: Context) {
 
     fun start() {
         scope.launch {
+            store.migrateToEncrypted()
             val saved = store.current().current
             if (saved == null) _state.value = AppState.NeedsServer else activate(saved)
         }

@@ -89,6 +89,7 @@ import app.reelstash.android.ui.layout.rememberFormFactor
 import app.reelstash.android.ui.library.LibraryScreen
 import app.reelstash.android.ui.reels.ReelsScreen
 import app.reelstash.android.ui.search.SearchScreen
+import app.reelstash.android.ui.settings.LicensesScreen
 import app.reelstash.android.ui.settings.SettingsScreen
 import app.reelstash.android.ui.theme.Rs
 
@@ -119,6 +120,7 @@ class Navigator(private val nav: NavHostController, private val play: (Long) -> 
     fun openPeople() = nav.navigate("people") { launchSingleTop = true }
     fun openBrowse() = tab(Tab.Browse.route)
     fun openSettings() = tab(Tab.Profile.route)
+    fun openLicenses() = nav.navigate("licenses") { launchSingleTop = true }
     fun play(id: Long) = play.invoke(id)
     fun back() = nav.popBackStack()
 
@@ -257,8 +259,9 @@ private fun AppNavHost(nav: NavHostController, navigator: Navigator, modifier: M
         composable(Tab.Browse.route) { BrowseScreen(navigator) }
         composable(Tab.Reels.route) { ReelsScreen(navigator) }
         composable(Tab.Library.route) { LibraryScreen(navigator) }
-        composable(Tab.Profile.route) { SettingsScreen(navigator) }
-        composable("search") { SearchScreen(navigator) }
+                composable(Tab.Profile.route) { SettingsScreen(navigator) }
+                composable("licenses") { LicensesScreen(navigator) }
+                composable("search") { SearchScreen(navigator) }
         composable("people") { PeopleScreen(navigator) }
         composable("media/{id}", listOf(navArgument("id") { type = NavType.LongType })) {
             MediaDetailScreen(it.arguments!!.getLong("id"), navigator)
