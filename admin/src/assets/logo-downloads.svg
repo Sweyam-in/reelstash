@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ReelStash Downloads">
-  <circle cx="32" cy="32" r="30" fill="#F26B1D"/>
-  <g fill="#0E9AA7">
-    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8"/>
-    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(90 32 32)"/>
-    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(180 32 32)"/>
-    <rect x="28.2" y="5" width="7.6" height="22" rx="3.8" transform="rotate(270 32 32)"/>
-  </g>
-  <circle cx="32" cy="32" r="14" fill="#FFF6E6"/>
-  <path d="M29.2 22.8 H34.8 V30.2 H39.2 L32 37.6 L24.8 30.2 H29.2 Z" fill="#0E9AA7"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="ReelStash Downloads"><defs><linearGradient id="rsg4" gradientUnits="userSpaceOnUse" x1="19" y1="19" x2="29" y2="29"><stop offset="0" stop-color="#FF9A4D"/><stop offset="1" stop-color="#D9430F"/></linearGradient></defs><circle cx="24" cy="24" r="22" fill="#123C36"/><circle cx="24" cy="24" r="21" fill="none" stroke="#55C7B0" stroke-width="1.5"/><g transform="rotate(0 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><g transform="rotate(60 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><g transform="rotate(120 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><g transform="rotate(180 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><g transform="rotate(240 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><g transform="rotate(300 24 24)"><path d="M24 16C18.6 12.6 19.4 9.4 24 6.6Z" fill="#55C7B0"/><path d="M24 6.6C28.6 9.4 29.4 12.6 24 16Z" fill="#2A917F"/></g><path d="M24 19.2V26M21 23.4L24 26.4L27 23.4M20.2 29H27.8" fill="none" stroke="url(#rsg4)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
