@@ -76,9 +76,9 @@ The `jobs` package persists pending work before queueing it. On startup, the run
 
 ## Data model
 
-PostgreSQL is the source of truth. The base migration defines users, storage locations, media items and files, people, studios, series, tags, collections, playback state, duplicate groups, and jobs. Later migrations add sessions, provider links, player features, notifications, library roots and access, scan rules, and per-user favorites. `library_root` maps storage paths to libraries; `library_access` controls which libraries a user can browse.
+PostgreSQL is the source of truth. The consolidated schema script defines users, storage locations, media items and files, people, studios, series, tags, collections, playback state, duplicate groups, jobs, sessions, provider links, notifications, library roots and access, scan rules, and per-user favorites. `library_root` maps storage paths to libraries; `library_access` controls which libraries a user can browse.
 
-Media files and generated assets are separate from database rows. Backups should include the database and asset volumes. The original media mount is managed separately and should be backed up according to its own storage policy. Migrations are embedded in the Go binary and applied in filename order at startup; a failed migration stops startup.
+Media files and generated assets are separate from database rows. Backups should include the database and asset volumes. The original media mount is managed separately and should be backed up according to its own storage policy. The consolidated PostgreSQL schema is embedded in the Go binary and applied at startup; an error stops startup.
 
 ## Authentication and authorization
 

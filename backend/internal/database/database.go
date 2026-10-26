@@ -1,18 +1,16 @@
 // Package database owns the Postgres connection pool and applies the
-// ReelStash schema migration on startup.
+// ReelStash schema on startup.
 package database
 
 import (
 	"context"
 	"embed"
 	"fmt"
-	"io/fs"
-	"sort"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/postgres.sql
 var migrationsFS embed.FS
 
 // Connect opens the pool. maxConns overrides pgx's default sizing
@@ -38,24 +36,16 @@ func Connect(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool.
 	return pool, nil
 }
 
-// Migrate applies every embedded migration file in name order. Each file is
-// written with CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS, so
-// re-running the full set on every startup is safe.
+// Migrate applies the consolidated PostgreSQL schema. It preserves the
+// historical upgrade steps so existing installations and fresh databases
+// reach the same schema. The script is safe to replay at startup.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	entries, err := fs.ReadDir(migrationsFS, "migrations")
+	contents, err := migrationsFS.ReadFile("migrations/postgres.sql")
 	if err != nil {
-		return fmt.Errorf("read migrations: %w", err)
+		return fmt.Errorf("read PostgreSQL schema: %w", err)
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-
-	for _, entry := range entries {
-		contents, err := migrationsFS.ReadFile("migrations/" + entry.Name())
-		if err != nil {
-			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
-		}
-		if _, err := pool.Exec(ctx, string(contents)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", entry.Name(), err)
-		}
+	if _, err := pool.Exec(ctx, string(contents)); err != nil {
+		return fmt.Errorf("apply PostgreSQL schema: %w", err)
 	}
 	return nil
 }

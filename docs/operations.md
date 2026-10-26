@@ -52,7 +52,7 @@ Use the actual `POSTGRES_USER` and `POSTGRES_DB` values if different. Copy the a
 
 ## Updating
 
-For the local stack, rebuild and restart with `docker compose up --build -d`. Use `scripts/install.sh` to upgrade a standard install. Take a database and asset backup before changing versions. Migrations run at API startup and are ordered by filename. Review migration SQL before rolling back an image, because a code rollback does not reverse schema changes.
+For the local stack, rebuild and restart with `docker compose up --build -d`. Use `scripts/install.sh` to upgrade a standard install. Take a database and asset backup before changing versions. The consolidated PostgreSQL schema runs at API startup. Review schema changes before rolling back an image, because a code rollback does not reverse them.
 
 ## Troubleshooting
 
@@ -70,6 +70,6 @@ For the local stack, rebuild and restart with `docker compose up --build -d`. Us
 | New files do not appear by themselves | Switch on file watching (or add a schedule) under **Admin → Automation**; check its status there. Watching cannot see writes made by other machines to a network share. |
 | A subtitle or audio track is missing from the player | Picture-based subtitles (PGS, VobSub) are not offered. Sidecar subtitles must start with the video's file name. Tracks of files scanned before this feature are read the first time the title is opened. |
 | No live job updates | Confirm `/api/events` is proxied without buffering and with a long read timeout. |
-| Database startup fails | Confirm `DATABASE_URL`, database readiness, and the named migration reported in API logs. |
+| Database startup fails | Confirm `DATABASE_URL`, database readiness, and the PostgreSQL schema error reported in API logs. |
 
 On a network mount, a blocked filesystem call can delay scanning even when the scan's stall detection reports failure. Resolve the mount itself before repeatedly retrying scans.

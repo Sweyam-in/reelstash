@@ -54,7 +54,7 @@ The Go command runs `go vet ./...` and `go test ./... -count=1`. UI tests includ
 ## Make a backend change
 
 1. Add or adjust a handler under `internal/httpapi/` and register its route in `router.go` with the right authentication, Admin, and library checks.
-2. Keep SQL migrations in `internal/database/migrations/`, numbered after the latest migration. They are embedded and applied in filename order at startup. Make reruns safe, following existing migrations.
+2. Add PostgreSQL schema changes to `internal/database/migrations/postgres.sql`. Keep changes safe to rerun: the consolidated script is embedded and replayed at startup. Preserve existing-install upgrade behavior as well as fresh-install behavior.
 3. If the change runs asynchronously, register a handler in `main.go` or `scanner.RegisterJobs` and persist work through `jobs.Runner`.
 4. Add a meaningful test for behavior that can regress: router authorization, database state, job lifecycle, or a parsing edge case. See the existing test harness.
 5. Update this documentation and the frontend API client if the endpoint or user workflow changed.

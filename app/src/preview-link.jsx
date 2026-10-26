@@ -1,0 +1,12 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { SpatikaThemeProvider, Toaster } from '@spatika/react';
+import { LinkDevicePage } from './components/Devices';
+import './index.css';
+import './reelstash.css';
+import './design.css';
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import './discover.css';
+import './libraries.css';
+createRoot(document.getElementById('root')).render(<SpatikaThemeProvider theme="neelam" className="rs-media-theme rs-app-media"><Toaster><BrowserRouter><div className="rs-media-surface"><LinkDevicePage /></div></BrowserRouter></Toaster></SpatikaThemeProvider>);
