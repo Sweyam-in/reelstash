@@ -39,6 +39,7 @@ The app runs at <http://localhost:3000> and the admin at <http://localhost:3001/
 - `app/`: media library UI (React/Vite)
 - `admin/`: Admin, Files and Downloads UI (React/Vite)
 - `docs/`: product and developer documentation
-- `mobile/`: Android app
+
+For iOS and Android app changes, use the separate [reelstash-app Flutter project](https://github.com/Sweyam-in/reelstash-app).
 
 Database changes go in a new embedded migration; never edit one that has shipped.

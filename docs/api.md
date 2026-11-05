@@ -10,7 +10,7 @@ The API listens on `REELSTASH_ADDR` (default port `8902`). Browser deployments n
 
 ### App sign-in (device sessions)
 
-Apps such as the Android app hold a bearer token, a *device session* that lasts 180 days and slides forward while the app is used.
+Client apps hold a bearer token, a *device session* that lasts 180 days and slides forward while the app is used.
 
 - `GET /auth/server-info` (public) returns `{product: "reelstash", name, version, apiVersion, passwordLogin, pairing, plugins}`. An app checks an address with it before signing in. `name` comes from `REELSTASH_SERVER_NAME`, and `version` from the build.
 - `POST /auth/token` with `{username, password, deviceName, platform}` signs in with a ReelStash password and returns `{token, expiresAt, user}`. It is throttled like the web sign-in.

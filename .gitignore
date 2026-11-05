@@ -49,8 +49,10 @@ ui/build/
 
 # Application Data
 data/
-!mobile/androidApp/src/main/kotlin/app/reelstash/android/data/
 backend/data/
+
+# Retired native project: keep any local build files and signing material out of Git
+/mobile/
 
 # Private production deployment (kept out of the open-source repo)
 prod-deploy/

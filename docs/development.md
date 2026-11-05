@@ -1,5 +1,7 @@
 # Development
 
+The iOS and Android apps are maintained in the separate [reelstash-app Flutter repository](https://github.com/Sweyam-in/reelstash-app). The `app/` directory in this repository is the React web media library.
+
 ## Repository map
 
 ```text
@@ -10,7 +12,7 @@ backend/internal/database/          Pool and embedded SQL migrations
 backend/internal/jobs/              Persisted background jobs
 backend/internal/scanner/           Discovery and media processing
 backend/internal/namer/             Metadata matching
-app/src/App.jsx                        reelstash-app routes (media library)
+app/src/App.jsx                        browser media library routes
 admin/src/AdminApp.jsx                 reelstash-admin routes
 admin/src/FilesApp.jsx                 Files workspace routes (served with the admin)
 app/src/api.js, admin/src/api.js       Each app's own API client

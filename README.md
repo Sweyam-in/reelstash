@@ -6,6 +6,8 @@ ReelStash is a self-hosted media library and file organizer. It indexes video fi
 
 The repository contains a Go API, a React UI, PostgreSQL migrations, background workers, and Docker deployment files. Media, Admin, and Files are three UI entry points built from the same frontend codebase.
 
+The Flutter app for iOS and Android lives in the separate [reelstash-app project](https://github.com/Sweyam-in/reelstash-app). The `app/` directory here is the browser-based media library.
+
 ## What it does
 
 - Indexes mounted storage incrementally, reads media details with `ffprobe`, imports NFO metadata, and generates thumbnails, preview clips, and scrub sprites.
@@ -65,7 +67,7 @@ The [test guide](TESTING.md) has more on running the tests.
 
 ```text
 backend/       Go API, workers, providers, embedded SQL migrations
-app/              reelstash-app: the media library (React/Vite, own tests and image)
+app/              browser media library (React/Vite, own tests and image)
 admin/            reelstash-admin: Admin, Files and Downloads (React/Vite, own tests and image)
 docs/             Product and developer documentation
 scripts/          dev.sh (native run), dev-docker.sh (Compose run), test.sh
