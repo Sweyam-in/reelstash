@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reelstash/backend/internal/database"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/testdb"
 )
 
-func status(t *testing.T, pool *pgxpool.Pool, id int64) (st, errMsg string, result []byte) {
+func status(t *testing.T, pool database.DB, id int64) (st, errMsg string, result []byte) {
 	t.Helper()
 	var e *string
 	if err := pool.QueryRow(context.Background(), `SELECT status, error, result FROM background_job WHERE id = $1`, id).Scan(&st, &e, &result); err != nil {
@@ -39,7 +38,7 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-func waitStatus(t *testing.T, pool *pgxpool.Pool, id int64, want string) {
+func waitStatus(t *testing.T, pool database.DB, id int64, want string) {
 	t.Helper()
 	waitFor(t, "job "+want, func() bool { s, _, _ := status(t, pool, id); return s == want })
 }
@@ -63,7 +62,7 @@ func TestJobRunsAndStoresResult(t *testing.T) {
 	defer r.Shutdown(time.Second)
 
 	var seen json.RawMessage
-	r.Register("ECHO", func(ctx context.Context, db *pgxpool.Pool, id int64, payload json.RawMessage) (any, error) {
+	r.Register("ECHO", func(ctx context.Context, db database.DB, id int64, payload json.RawMessage) (any, error) {
 		seen = payload
 		return map[string]int{"total": 3}, nil
 	})
@@ -102,7 +101,7 @@ func TestFailingHandlerMarksFailed(t *testing.T) {
 	finished, _ := hooks(t)
 	r := jobs.NewRunner(pool, 1)
 	defer r.Shutdown(time.Second)
-	r.Register("BOOM", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) {
+	r.Register("BOOM", func(context.Context, database.DB, int64, json.RawMessage) (any, error) {
 		return nil, errors.New("disk on fire")
 	})
 	id, _ := r.Enqueue(context.Background(), "BOOM", nil)
@@ -143,7 +142,7 @@ func TestCancelRunningJob(t *testing.T) {
 	r := jobs.NewRunner(pool, 1)
 	defer r.Shutdown(time.Second)
 	started := make(chan struct{})
-	r.Register("SLOW", func(ctx context.Context, _ *pgxpool.Pool, _ int64, _ json.RawMessage) (any, error) {
+	r.Register("SLOW", func(ctx context.Context, _ database.DB, _ int64, _ json.RawMessage) (any, error) {
 		close(started)
 		<-ctx.Done()
 		return nil, ctx.Err()
@@ -169,11 +168,11 @@ func TestCancelPendingJobIsSkipped(t *testing.T) {
 
 	block := make(chan struct{})
 	var ranSecond atomic.Bool
-	r.Register("BLOCK", func(ctx context.Context, _ *pgxpool.Pool, _ int64, _ json.RawMessage) (any, error) {
+	r.Register("BLOCK", func(ctx context.Context, _ database.DB, _ int64, _ json.RawMessage) (any, error) {
 		<-block
 		return nil, nil
 	})
-	r.Register("SECOND", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) {
+	r.Register("SECOND", func(context.Context, database.DB, int64, json.RawMessage) (any, error) {
 		ranSecond.Store(true)
 		return nil, nil
 	})
@@ -201,7 +200,7 @@ func TestCancelFinishedOrUnknownJobErrors(t *testing.T) {
 	hooks(t)
 	r := jobs.NewRunner(pool, 1)
 	defer r.Shutdown(time.Second)
-	r.Register("OK", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) { return nil, nil })
+	r.Register("OK", func(context.Context, database.DB, int64, json.RawMessage) (any, error) { return nil, nil })
 	id, _ := r.Enqueue(context.Background(), "OK", nil)
 	waitStatus(t, pool, id, "COMPLETED")
 	if _, err := r.Cancel(context.Background(), id); err == nil {
@@ -219,7 +218,7 @@ func TestShutdownRevertsRunningJobAndResumePendingRerunsIt(t *testing.T) {
 	hooks(t)
 	r1 := jobs.NewRunner(pool, 1)
 	started := make(chan struct{})
-	r1.Register("LONG", func(ctx context.Context, _ *pgxpool.Pool, _ int64, _ json.RawMessage) (any, error) {
+	r1.Register("LONG", func(ctx context.Context, _ database.DB, _ int64, _ json.RawMessage) (any, error) {
 		close(started)
 		<-ctx.Done()
 		return nil, ctx.Err()
@@ -232,7 +231,7 @@ func TestShutdownRevertsRunningJobAndResumePendingRerunsIt(t *testing.T) {
 	r2 := jobs.NewRunner(pool, 1)
 	defer r2.Shutdown(time.Second)
 	var got atomic.Value
-	r2.Register("LONG", func(_ context.Context, _ *pgxpool.Pool, _ int64, payload json.RawMessage) (any, error) {
+	r2.Register("LONG", func(_ context.Context, _ database.DB, _ int64, payload json.RawMessage) (any, error) {
 		got.Store(string(payload))
 		return "done", nil
 	})
@@ -258,7 +257,7 @@ func TestWorkersRunJobsConcurrently(t *testing.T) {
 	defer r.Shutdown(time.Second)
 	var cur, peak atomic.Int32
 	release := make(chan struct{})
-	r.Register("PAR", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) {
+	r.Register("PAR", func(context.Context, database.DB, int64, json.RawMessage) (any, error) {
 		n := cur.Add(1)
 		for {
 			p := peak.Load()
@@ -290,7 +289,7 @@ func TestZeroWorkersStillGetsOne(t *testing.T) {
 	hooks(t)
 	r := jobs.NewRunner(pool, 0)
 	defer r.Shutdown(time.Second)
-	r.Register("OK", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) { return nil, nil })
+	r.Register("OK", func(context.Context, database.DB, int64, json.RawMessage) (any, error) { return nil, nil })
 	id, _ := r.Enqueue(context.Background(), "OK", nil)
 	waitStatus(t, pool, id, "COMPLETED")
 }
@@ -302,7 +301,7 @@ func TestBurstEnqueueDoesNotDropJobs(t *testing.T) {
 	defer r.Shutdown(time.Second)
 	release := make(chan struct{})
 	var ran atomic.Int32
-	r.Register("BURST", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) {
+	r.Register("BURST", func(context.Context, database.DB, int64, json.RawMessage) (any, error) {
 		ran.Add(1)
 		<-release
 		return nil, nil
@@ -345,7 +344,7 @@ func TestAdoptOrphansRestartsKilledJobAndClosesItsScan(t *testing.T) {
 
 	r := jobs.NewRunner(pool, 1)
 	defer r.Shutdown(time.Second)
-	r.Register("SCAN", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) { return "again", nil })
+	r.Register("SCAN", func(context.Context, database.DB, int64, json.RawMessage) (any, error) { return "again", nil })
 	if err := r.AdoptOrphans(context.Background()); err != nil {
 		t.Fatal(err)
 	}

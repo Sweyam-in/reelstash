@@ -6,8 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"reelstash/backend/internal/database"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -30,7 +29,7 @@ type RemoveMissingResult struct {
 // Unreadable is not the same as deleted, so a storage location is skipped
 // while a scan is running on it, when its mount is not a readable directory,
 // or when its last scan did not finish walking it.
-func (s *Scanner) handleRemoveMissingJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleRemoveMissingJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	// An optional storageLocationId limits the cleanup to one location.
 	var only struct {
 		StorageLocationID int64 `json:"storageLocationId"`
@@ -156,7 +155,7 @@ func (s *Scanner) safeToRemoveMissing(ctx context.Context, locationID int64, mou
 
 // removeTitleIfEmpty deletes the title (and its uploaded artwork) once it has
 // no files left. It reports whether it did.
-func (s *Scanner) removeTitleIfEmpty(ctx context.Context, db *pgxpool.Pool, itemID int64) (bool, error) {
+func (s *Scanner) removeTitleIfEmpty(ctx context.Context, db database.DB, itemID int64) (bool, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return false, err

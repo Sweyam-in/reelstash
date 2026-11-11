@@ -4,7 +4,7 @@ By [Sweyam](https://sweyam.com) · [Product page](https://sweyam.com/products/re
 
 ReelStash is a self-hosted media library and file organizer. It indexes video files on mounted storage, enriches them with metadata, and provides browser-based playback, library management, and administration.
 
-The repository contains a Go API, a React UI, PostgreSQL migrations, background workers, and Docker deployment files. Media, Admin, and Files are three UI entry points built from the same frontend codebase.
+The repository contains a Go API, React UIs, PostgreSQL and SQLite schemas, background workers, and Docker deployment files.
 
 The Flutter app for iOS and Android lives in the separate [reelstash-app project](https://github.com/Sweyam-in/reelstash-app). The `app/` directory here is the browser-based media library.
 
@@ -31,9 +31,11 @@ wget -qO- https://raw.githubusercontent.com/Sweyam-in/reelstash/main/scripts/ins
 
 Details, options and updating: [Quick install](docs/install.md).
 
+For a local SQLite installation, see [macOS and Linux Snap packaging](docs/local-packaging.md).
+
 ## Quick start for development
 
-Prerequisites: Docker, Go **1.26.5** (as specified in `backend/go.mod`), and Node.js **22** with npm (the version used by the UI Docker build).
+Prerequisites: Docker, Go **1.27.3** (as specified in `backend/go.mod`), and Node.js **22** with npm (the version used by the UI Docker build).
 
 ```bash
 npm ci --prefix app

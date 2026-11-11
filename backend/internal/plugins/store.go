@@ -2,9 +2,8 @@ package plugins
 
 import (
 	"context"
+	"reelstash/backend/internal/database"
 	"sync"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Store keeps what ReelStash remembers about bundles between restarts.
@@ -15,7 +14,7 @@ type Store interface {
 }
 
 // DBStore keeps settings in app_setting.
-type DBStore struct{ DB *pgxpool.Pool }
+type DBStore struct{ DB database.DB }
 
 func (s DBStore) Get(ctx context.Context, key string) (string, bool) {
 	var v string

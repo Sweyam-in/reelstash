@@ -14,13 +14,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"reelstash/backend/internal/pathguard"
 )
 
@@ -83,7 +83,7 @@ func TemplateKey(libraryID int64) string {
 // Template returns the active naming template for a library: its own saved
 // template, else the global saved one, else fallback. libraryID 0 skips the
 // library lookup.
-func Template(ctx context.Context, db *pgxpool.Pool, libraryID int64, fallback string) string {
+func Template(ctx context.Context, db database.DB, libraryID int64, fallback string) string {
 	keys := []string{TemplateSettingKey}
 	if libraryID > 0 {
 		keys = []string{TemplateKey(libraryID), TemplateSettingKey}
@@ -101,7 +101,7 @@ func Template(ctx context.Context, db *pgxpool.Pool, libraryID int64, fallback s
 }
 
 // FileTemplate is Template for the library a media file belongs to.
-func FileTemplate(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, fallback string) string {
+func FileTemplate(ctx context.Context, db database.DB, mediaFileID int64, fallback string) string {
 	var lib *int64
 	_ = db.QueryRow(ctx, `SELECT library_id FROM media_file WHERE id = $1`, mediaFileID).Scan(&lib)
 	if lib == nil {
@@ -158,7 +158,7 @@ func BuildFileName(template string, title, studio, series string, releaseDate *t
 	return name + strings.ToLower(ext)
 }
 
-func loadFileRow(ctx context.Context, db *pgxpool.Pool, mediaFileID int64) (fileRow, error) {
+func loadFileRow(ctx context.Context, db database.DB, mediaFileID int64) (fileRow, error) {
 	var f fileRow
 	var ext string
 	err := db.QueryRow(ctx, `
@@ -176,7 +176,7 @@ func loadFileRow(ctx context.Context, db *pgxpool.Pool, mediaFileID int64) (file
 	return f, err
 }
 
-func loadPerformers(ctx context.Context, db *pgxpool.Pool, mediaItemID int64) ([]string, error) {
+func loadPerformers(ctx context.Context, db database.DB, mediaItemID int64) ([]string, error) {
 	rows, err := db.Query(ctx, `
 		SELECT p.name FROM media_item_performer mip
 		JOIN performer p ON p.id = mip.performer_id
@@ -200,7 +200,7 @@ func loadPerformers(ctx context.Context, db *pgxpool.Pool, mediaItemID int64) ([
 
 // Preview computes the proposed rename for a media file without touching
 // disk or the database.
-func Preview(ctx context.Context, db *pgxpool.Pool, template string, mediaFileID int64) (Target, error) {
+func Preview(ctx context.Context, db database.DB, template string, mediaFileID int64) (Target, error) {
 	f, err := loadFileRow(ctx, db, mediaFileID)
 	if err != nil {
 		return Target{}, err
@@ -240,7 +240,7 @@ func Preview(ctx context.Context, db *pgxpool.Pool, template string, mediaFileID
 
 // Apply renames the physical file and updates media_file to match. It
 // refuses to overwrite an existing file at the target path.
-func Apply(ctx context.Context, db *pgxpool.Pool, template string, mediaFileID int64) (Target, error) {
+func Apply(ctx context.Context, db database.DB, template string, mediaFileID int64) (Target, error) {
 	f, err := loadFileRow(ctx, db, mediaFileID)
 	if err != nil {
 		return Target{}, err
@@ -304,7 +304,7 @@ func replaceExt(path, newExt string) string {
 // PendingQueue lists media files whose current filename does not match
 // what their library's template would produce — the Rename Pipeline's
 // queue. libraryID 0 covers every library, each with its own template.
-func PendingQueue(ctx context.Context, db *pgxpool.Pool, libraryID int64, fallback string, limit int) ([]Target, error) {
+func PendingQueue(ctx context.Context, db database.DB, libraryID int64, fallback string, limit int) ([]Target, error) {
 	// Files are checked in id order, in batches, until `limit` of them need a
 	// rename. Checking only the first `limit` files would leave the queue empty
 	// whenever those happen to be named correctly already.

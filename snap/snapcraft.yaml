@@ -1,0 +1,37 @@
+name: reelstash
+base: core24
+version: '2.1.0'
+summary: Local media library and organizer
+description: |
+  ReelStash manages a local media library, scans files and serves its web UI.
+grade: devel
+confinement: strict
+
+apps:
+  reelstash:
+    command: bin/reelstash-snap
+    plugs: [home, removable-media, network, network-bind, desktop, desktop-legacy]
+    desktop: share/applications/reelstash.desktop
+
+parts:
+  reelstash:
+    source: .
+    plugin: nil
+    build-snaps: [go/latest/stable, node/22/stable]
+    build-packages: [gcc, libc6-dev, pkg-config]
+    stage-packages: [ffmpeg, xdg-utils, curl, libsqlite3-0]
+    override-build: |
+      set -eu
+      cd "$CRAFT_PART_SRC/app"
+      npm ci
+      npm run build
+      cd "$CRAFT_PART_SRC/admin"
+      npm ci
+      npm run build
+      mkdir -p "$CRAFT_PART_INSTALL/web" "$CRAFT_PART_INSTALL/bin" "$CRAFT_PART_INSTALL/share/applications"
+      cp -R "$CRAFT_PART_SRC/app/dist/." "$CRAFT_PART_INSTALL/web/"
+      cp -R "$CRAFT_PART_SRC/admin/dist/." "$CRAFT_PART_INSTALL/web/"
+      cd "$CRAFT_PART_SRC/backend"
+      CGO_ENABLED=1 go build -trimpath -o "$CRAFT_PART_INSTALL/bin/reelstash-server" ./cmd/server
+      cp "$CRAFT_PART_SRC/snap/reelstash-snap" "$CRAFT_PART_INSTALL/bin/reelstash-snap"
+      cp "$CRAFT_PART_SRC/snap/reelstash.desktop" "$CRAFT_PART_INSTALL/share/applications/reelstash.desktop"

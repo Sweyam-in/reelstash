@@ -9,13 +9,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Native accounts sign in with a username and password that ReelStash keeps
@@ -115,7 +115,7 @@ func scanUser(row pgx.Row, u *User) error {
 }
 
 // CreateNativeUser adds a username/password account.
-func CreateNativeUser(ctx context.Context, db *pgxpool.Pool, username, password, displayName, role string) (User, error) {
+func CreateNativeUser(ctx context.Context, db database.DB, username, password, displayName, role string) (User, error) {
 	username = strings.TrimSpace(username)
 	if err := ValidateUsername(username); err != nil {
 		return User{}, err
@@ -149,7 +149,7 @@ func CreateNativeUser(ctx context.Context, db *pgxpool.Pool, username, password,
 // AuthenticateNative checks a username and password. Unknown users, wrong
 // passwords and accounts without a native password all give ErrBadCredentials.
 // A disabled account is returned with Disabled set so the caller can say so.
-func AuthenticateNative(ctx context.Context, db *pgxpool.Pool, username, password string) (User, error) {
+func AuthenticateNative(ctx context.Context, db database.DB, username, password string) (User, error) {
 	var u User
 	var hash *string
 	err := db.QueryRow(ctx, `SELECT `+userColumns+`, password_hash FROM app_user WHERE lower(username) = lower($1)`,
@@ -170,7 +170,7 @@ func AuthenticateNative(ctx context.Context, db *pgxpool.Pool, username, passwor
 
 // SetPassword replaces a native account's password and signs it out everywhere
 // except the session named keep ("" signs out everywhere).
-func SetPassword(ctx context.Context, db *pgxpool.Pool, userID int64, password, keepSession string) error {
+func SetPassword(ctx context.Context, db database.DB, userID int64, password, keepSession string) error {
 	if err := ValidatePassword(password); err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func SetPassword(ctx context.Context, db *pgxpool.Pool, userID int64, password, 
 var ErrNotNative = errors.New("this account does not sign in with a ReelStash password")
 
 // PasswordHashFor returns the stored hash for a user, "" when it has none.
-func PasswordHashFor(ctx context.Context, db *pgxpool.Pool, userID int64) string {
+func PasswordHashFor(ctx context.Context, db database.DB, userID int64) string {
 	var hash *string
 	_ = db.QueryRow(ctx, `SELECT password_hash FROM app_user WHERE id = $1`, userID).Scan(&hash)
 	if hash == nil {
@@ -203,14 +203,14 @@ func PasswordHashFor(ctx context.Context, db *pgxpool.Pool, userID int64) string
 }
 
 // NativeUserCount is how many accounts can sign in with a password.
-func NativeUserCount(ctx context.Context, db *pgxpool.Pool) int {
+func NativeUserCount(ctx context.Context, db database.DB) int {
 	var n int
 	_ = db.QueryRow(ctx, `SELECT COUNT(*) FROM app_user WHERE password_hash IS NOT NULL AND NOT disabled`).Scan(&n)
 	return n
 }
 
 // AdminExists reports whether any admin account exists.
-func AdminExists(ctx context.Context, db *pgxpool.Pool) bool {
+func AdminExists(ctx context.Context, db database.DB) bool {
 	var n int
 	_ = db.QueryRow(ctx, `SELECT COUNT(*) FROM app_user WHERE role = 'ADMIN'`).Scan(&n)
 	return n > 0
@@ -219,7 +219,7 @@ func AdminExists(ctx context.Context, db *pgxpool.Pool) bool {
 // CreateFirstAdmin creates the first admin account, and only if no admin
 // exists yet; the check and the insert are one transaction under a lock, so two
 // visitors cannot both win. It returns ErrSetupDone otherwise.
-func CreateFirstAdmin(ctx context.Context, db *pgxpool.Pool, username, password, displayName string) (User, error) {
+func CreateFirstAdmin(ctx context.Context, db database.DB, username, password, displayName string) (User, error) {
 	username = strings.TrimSpace(username)
 	if err := ValidateUsername(username); err != nil {
 		return User{}, err
@@ -271,7 +271,7 @@ var ErrSetupDone = errors.New("setup is already done")
 // EnsureAdmin creates an admin from the environment (REELSTASH_ADMIN_USERNAME /
 // _PASSWORD) when that username does not exist yet. An existing account is
 // never touched, so changing the password in the app sticks.
-func EnsureAdmin(ctx context.Context, db *pgxpool.Pool, username, password string) (created bool, err error) {
+func EnsureAdmin(ctx context.Context, db database.DB, username, password string) (created bool, err error) {
 	var exists bool
 	if err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app_user WHERE lower(username) = lower($1))`, username).Scan(&exists); err != nil {
 		return false, err

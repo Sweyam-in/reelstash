@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/xml"
 	"os"
+	"reelstash/backend/internal/database"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // WriteNFO writes a Kodi-style <movie> NFO — the same schema ImportNFO
@@ -80,7 +79,7 @@ func itoa(n int) string {
 
 // MediaLinkIDs returns the provider records a title is linked to, oldest first,
 // followed by the title's own ReelStash uid, in the form WriteNFO takes.
-func MediaLinkIDs(ctx context.Context, db *pgxpool.Pool, mediaItemID int64) []NFOID {
+func MediaLinkIDs(ctx context.Context, db database.DB, mediaItemID int64) []NFOID {
 	var out []NFOID
 	rows, err := db.Query(ctx, `SELECT provider, external_id FROM match_link WHERE kind = 'media' AND entity_id = $1 ORDER BY matched_at`, mediaItemID)
 	if err == nil {

@@ -5,12 +5,11 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/auth"
 )
@@ -73,7 +72,7 @@ func throttleKeys(ip, username string) (pair, byIP, byUser string) {
 	return "pair|" + ip + "|" + u, "ip|" + ip, "user|" + u
 }
 
-func (t *loginThrottle) blocked(ctx context.Context, db *pgxpool.Pool, ip, username string) bool {
+func (t *loginThrottle) blocked(ctx context.Context, db database.DB, ip, username string) bool {
 	pair, byIP, byUser := throttleKeys(ip, username)
 	limits := map[string]int{pair: limitPerPair, byIP: limitPerIP, byUser: limitPerUser}
 	if db != nil {
@@ -102,7 +101,7 @@ func (t *loginThrottle) blocked(ctx context.Context, db *pgxpool.Pool, ip, usern
 	return false
 }
 
-func (t *loginThrottle) fail(ctx context.Context, db *pgxpool.Pool, ip, username string) {
+func (t *loginThrottle) fail(ctx context.Context, db database.DB, ip, username string) {
 	pair, byIP, byUser := throttleKeys(ip, username)
 	t.mu.Lock()
 	now := t.now()
@@ -137,7 +136,7 @@ func (t *loginThrottle) fail(ctx context.Context, db *pgxpool.Pool, ip, username
 	}
 }
 
-func (t *loginThrottle) succeed(ctx context.Context, db *pgxpool.Pool, ip, username string) {
+func (t *loginThrottle) succeed(ctx context.Context, db database.DB, ip, username string) {
 	pair, _, _ := throttleKeys(ip, username)
 	t.mu.Lock()
 	delete(t.entries, pair)

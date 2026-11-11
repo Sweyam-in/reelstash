@@ -13,8 +13,6 @@ import (
 	"time"
 	_ "time/tzdata" // lets TZ=Area/City work on the slim runtime image, for cron schedules
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"reelstash/backend/internal/auth"
 	"reelstash/backend/internal/authplugin"
 	"reelstash/backend/internal/config"
@@ -72,7 +70,7 @@ func main() {
 	cfg := config.Load()
 	ctx := context.Background()
 
-	pool, err := database.Connect(ctx, cfg.DatabaseURL, int32(cfg.PgMaxConns))
+	pool, err := database.Open(ctx, cfg.DatabaseURL, int32(cfg.PgMaxConns))
 	if err != nil {
 		log.Fatalf("connect to database: %v", err)
 	}
@@ -109,7 +107,7 @@ func main() {
 	sc := scanner.New(pool, jobRunner, thumbnailJobRunner, cfg.ThumbnailDir, cfg.ScanFileWorkers)
 	sc.SpriteDir, sc.PreviewDir, sc.PosterDir = cfg.SpriteDir, cfg.PreviewDir, cfg.PosterDir
 	sc.RegisterJobs()
-	jobRunner.Register("ORGANIZE", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("ORGANIZE", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p struct {
 			StorageLocationID int64 `json:"storageLocationId"`
 			LibraryID         int64 `json:"libraryId"`
@@ -148,7 +146,7 @@ func main() {
 	} else {
 		log.Printf("metadata matching disabled (add an API key under Metadata → Providers, or install a provider plugin under Plugins)")
 	}
-	jobRunner.Register("NAMER", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("NAMER", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p struct {
 			MediaFileID int64  `json:"mediaFileId"`
 			Provider    string `json:"provider"`
@@ -172,10 +170,10 @@ func main() {
 		}
 		return namerEngine.MatchFile(ctx, p.MediaFileID)
 	})
-	jobRunner.Register("LINK_RECOVERY", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("LINK_RECOVERY", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		return namerEngine.RecoverLinks(ctx, jobID)
 	})
-	jobRunner.Register("PERFORMER_SYNC", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("PERFORMER_SYNC", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p struct {
 			RetryUnresolved bool `json:"retryUnresolved"`
 		}
@@ -184,10 +182,10 @@ func main() {
 		}
 		return namerEngine.SyncPerformers(ctx, jobID, p.RetryUnresolved)
 	})
-	jobRunner.Register("STUDIO_SYNC", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("STUDIO_SYNC", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		return namerEngine.SyncStudios(ctx, jobID)
 	})
-	jobRunner.Register("STUDIO_MATCH", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("STUDIO_MATCH", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p struct {
 			StudioID   int64  `json:"studioId"`
 			Provider   string `json:"provider"`
@@ -201,7 +199,7 @@ func main() {
 		}
 		return namerEngine.MatchStudio(ctx, p.StudioID, p.Provider, p.ExternalID)
 	})
-	jobRunner.Register("PERFORMER_MATCH", func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	jobRunner.Register("PERFORMER_MATCH", func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p struct {
 			PerformerID int64  `json:"performerId"`
 			Provider    string `json:"provider"`
@@ -248,10 +246,14 @@ func main() {
 	defer stop()
 
 	router := httpapi.NewRouter(pool, cfg, jobRunner, sc, namerEngine, hub, notifier, httpapi.WithWatcher(watcher), httpapi.WithPlugins(bundles, authPlugins), httpapi.WithDownloads(dl), httpapi.WithBackground(sigCtx))
+	var handler http.Handler = router
+	if webDir := os.Getenv("REELSTASH_WEB_DIR"); webDir != "" {
+		handler = localWebHandler(router, webDir)
+	}
 
 	server := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: router,
+		Handler: handler,
 		// ReadTimeout/ReadHeaderTimeout/IdleTimeout bound slow or stalled
 		// clients from holding a connection open indefinitely. WriteTimeout
 		// is intentionally left unset: HLS segment transcodes and large

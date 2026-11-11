@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ThumbnailJobPayload struct {
@@ -28,7 +28,7 @@ const ffmpegTimeout = 2 * time.Minute
 // the file, skipping black or flat frames) and records it as the media file's
 // thumbnail. Thumbnail generation is always run as an async background_job,
 // never inline on a request.
-func GenerateThumbnail(ctx context.Context, db *pgxpool.Pool, thumbnailDir string, mediaFileID int64) error {
+func GenerateThumbnail(ctx context.Context, db database.DB, thumbnailDir string, mediaFileID int64) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("ffmpeg not available: %w", err)
 	}
@@ -79,7 +79,7 @@ func GenerateThumbnail(ctx context.Context, db *pgxpool.Pool, thumbnailDir strin
 	return nil
 }
 
-func (s *Scanner) handleThumbnailJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleThumbnailJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var p ThumbnailJobPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, err

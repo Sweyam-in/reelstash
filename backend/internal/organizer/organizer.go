@@ -20,12 +20,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/pathguard"
@@ -105,7 +104,7 @@ type castMember struct {
 // storage location belongs, using the library's rules and layout. Folders
 // are placed inside the library root the video already sits in, so a move
 // never takes a video out of its library. It only reads the database; nothing on disk is touched.
-func BuildPlan(ctx context.Context, db *pgxpool.Pool, libraryID, storageLocationID int64, opts Options) (Plan, error) {
+func BuildPlan(ctx context.Context, db database.DB, libraryID, storageLocationID int64, opts Options) (Plan, error) {
 	plan := Plan{Settings: LoadSettings(ctx, db, libraryID), Template: rename.Template(ctx, db, libraryID, opts.FallbackTemplate), Moves: []Move{}}
 	if err := db.QueryRow(ctx, `SELECT mount_path FROM storage_location WHERE id = $1`, storageLocationID).Scan(&plan.mountPath); err != nil {
 		return plan, fmt.Errorf("load storage location: %w", err)
@@ -312,7 +311,7 @@ func BuildPlan(ctx context.Context, db *pgxpool.Pool, libraryID, storageLocation
 
 // libraryRoots returns the library's root paths on the storage location
 // ("" is the whole disk).
-func libraryRoots(ctx context.Context, db *pgxpool.Pool, libraryID, storageLocationID int64) ([]string, error) {
+func libraryRoots(ctx context.Context, db database.DB, libraryID, storageLocationID int64) ([]string, error) {
 	rows, err := db.Query(ctx, `SELECT path FROM library_root WHERE library_id = $1 AND storage_location_id = $2`, libraryID, storageLocationID)
 	if err != nil {
 		return nil, err
@@ -368,7 +367,7 @@ type Result struct {
 const maxReportedErrors = 50
 
 // Run organizes one library on a storage location. A dry run only builds the plan.
-func Run(ctx context.Context, db *pgxpool.Pool, jobID, libraryID, storageLocationID int64, dryRun bool, opts Options) (Result, error) {
+func Run(ctx context.Context, db database.DB, jobID, libraryID, storageLocationID int64, dryRun bool, opts Options) (Result, error) {
 	plan, err := BuildPlan(ctx, db, libraryID, storageLocationID, opts)
 	if err != nil {
 		return Result{}, err
@@ -408,7 +407,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, jobID, libraryID, storageLocatio
 }
 
 type applier struct {
-	db         *pgxpool.Pool
+	db         database.DB
 	mount      string
 	settings   Settings
 	opts       Options

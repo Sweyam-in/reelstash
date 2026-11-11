@@ -3,9 +3,8 @@ package scanner
 import (
 	"context"
 	"log"
+	"reelstash/backend/internal/database"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/diskinfo"
 )
@@ -15,7 +14,7 @@ const capacityRetention = 400 * 24 * time.Hour
 
 // recordCapacity stores a disk's current capacity on its row and as a
 // history point for the storage charts.
-func recordCapacity(ctx context.Context, db *pgxpool.Pool, storageLocationID int64, u diskinfo.Usage) {
+func recordCapacity(ctx context.Context, db database.DB, storageLocationID int64, u diskinfo.Usage) {
 	if _, err := db.Exec(ctx, `
 		UPDATE storage_location SET total_capacity = $2, used_capacity = $3, available_capacity = $4
 		WHERE id = $1

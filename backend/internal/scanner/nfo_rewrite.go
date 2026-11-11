@@ -6,10 +6,9 @@ import (
 	"encoding/xml"
 	"html"
 	"os"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -71,7 +70,7 @@ func RewriteNFOPerformer(path string, from []string, to string) (bool, error) {
 
 // RefreshNFORecord re-reads an NFO that was edited in place and updates the
 // stored copy so the next scan sees it as unchanged.
-func RefreshNFORecord(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, nfoPath string) error {
+func RefreshNFORecord(ctx context.Context, db database.DB, mediaFileID int64, nfoPath string) error {
 	movie, err := parseNFO(nfoPath)
 	if err != nil {
 		return err

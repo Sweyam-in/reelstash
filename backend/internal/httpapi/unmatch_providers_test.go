@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ import (
 	"reelstash/backend/internal/testdb"
 )
 
-func unmatchAPI(t *testing.T) (*API, *pgxpool.Pool) {
+func unmatchAPI(t *testing.T) (*API, database.DB) {
 	t.Helper()
 	dsn := os.Getenv("REELSTASH_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -46,7 +47,7 @@ func callUnmatch(t *testing.T, h http.HandlerFunc, id int64, body string) *httpt
 	return rec
 }
 
-func count(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) int {
+func count(t *testing.T, pool database.DB, sql string, args ...any) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(), sql, args...).Scan(&n); err != nil {
@@ -152,6 +153,6 @@ func TestUnmatchMediaOneProvider(t *testing.T) {
 	}
 }
 
-func linkCount(t *testing.T, pool *pgxpool.Pool, kind string, id int64) int {
+func linkCount(t *testing.T, pool database.DB, kind string, id int64) int {
 	return count(t, pool, `SELECT COUNT(*) FROM match_link WHERE kind = $1 AND entity_id = $2`, kind, id)
 }

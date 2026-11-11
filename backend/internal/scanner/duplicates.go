@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // DuplicateScanResult is persisted on the DUPLICATE_SCAN background_job
@@ -21,7 +20,7 @@ type DuplicateScanResult struct {
 	CurrentPath string `json:"currentPath,omitempty"`
 }
 
-func (s *Scanner) handleDuplicateScanJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleDuplicateScanJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	return s.ScanDuplicates(ctx, jobID)
 }
 
@@ -172,7 +171,7 @@ func (s *Scanner) ScanDuplicates(ctx context.Context, jobID int64) (DuplicateSca
 // partial_hash + file_size but belong to different media_items into
 // PROBABLE groups. It never deletes files; it only records groups for the
 // Duplicate Center to review. Existing dismissed groups are left alone.
-func DetectDuplicates(ctx context.Context, db *pgxpool.Pool) error {
+func DetectDuplicates(ctx context.Context, db database.DB) error {
 	if err := groupBy(ctx, db, "EXACT", `
 		SELECT content_hash AS key, array_agg(id ORDER BY id) AS file_ids
 		FROM media_file
@@ -192,7 +191,7 @@ func DetectDuplicates(ctx context.Context, db *pgxpool.Pool) error {
 	`)
 }
 
-func groupBy(ctx context.Context, db *pgxpool.Pool, kind, query string) error {
+func groupBy(ctx context.Context, db database.DB, kind, query string) error {
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		return err

@@ -17,11 +17,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/config"
 	"reelstash/backend/internal/jobs"
@@ -64,7 +64,7 @@ const settingsKey = "housekeeping_settings"
 
 // LoadSettings reads the saved settings, falling back to the defaults for
 // anything missing or invalid.
-func LoadSettings(ctx context.Context, db *pgxpool.Pool) Settings {
+func LoadSettings(ctx context.Context, db database.DB) Settings {
 	s := DefaultSettings
 	var raw string
 	if err := db.QueryRow(ctx, `SELECT value FROM app_setting WHERE key = $1`, settingsKey).Scan(&raw); err == nil {
@@ -102,7 +102,7 @@ func (s Settings) Validate() error {
 }
 
 // SaveSettings stores s.
-func SaveSettings(ctx context.Context, db *pgxpool.Pool, s Settings) error {
+func SaveSettings(ctx context.Context, db database.DB, s Settings) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
@@ -164,12 +164,12 @@ type Report struct {
 
 // Service runs housekeeping.
 type Service struct {
-	DB   *pgxpool.Pool
+	DB   database.DB
 	Dirs Dirs
 	Now  func() time.Time // for tests
 }
 
-func New(db *pgxpool.Pool, dirs Dirs) *Service {
+func New(db database.DB, dirs Dirs) *Service {
 	return &Service{DB: db, Dirs: dirs, Now: time.Now}
 }
 
@@ -195,7 +195,7 @@ type Payload struct {
 
 // Handler runs the HOUSEKEEPING job.
 func (s *Service) Handler() jobs.Handler {
-	return func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+	return func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 		var p Payload
 		if len(payload) > 0 {
 			if err := json.Unmarshal(payload, &p); err != nil {
@@ -293,7 +293,7 @@ func (r *runner) guard() *pathguard.Guard {
 	return r.paths
 }
 
-func (r *runner) db() *pgxpool.Pool { return r.s.DB }
+func (r *runner) db() database.DB { return r.s.DB }
 
 func (r *runner) days(n int) time.Time { return r.now.Add(-time.Duration(n) * 24 * time.Hour) }
 

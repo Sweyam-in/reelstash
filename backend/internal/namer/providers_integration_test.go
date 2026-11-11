@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"testing"
 
@@ -70,7 +71,7 @@ func (s *stubProvider) GetStudio(_ context.Context, id string) (provider.StudioR
 	return provider.StudioResult{}, os.ErrNotExist
 }
 
-func integrationEngine(t *testing.T, providers ...provider.Provider) (*Engine, *pgxpool.Pool) {
+func integrationEngine(t *testing.T, providers ...provider.Provider) (*Engine, database.DB) {
 	t.Helper()
 	dsn := os.Getenv("REELSTASH_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -95,7 +96,7 @@ func integrationEngine(t *testing.T, providers ...provider.Provider) (*Engine, *
 }
 
 // newTitle inserts a title with one file on disk and returns its ids and path.
-func newTitle(t *testing.T, pool *pgxpool.Pool, fileName string) (itemID, fileID int64, mount string) {
+func newTitle(t *testing.T, pool database.DB, fileName string) (itemID, fileID int64, mount string) {
 	t.Helper()
 	ctx := context.Background()
 	mount = t.TempDir()
@@ -121,7 +122,7 @@ func newTitle(t *testing.T, pool *pgxpool.Pool, fileName string) (itemID, fileID
 
 // resetAutoMatch drops saved automatic-matching settings now and after the
 // test: integrationEngine shares one database, so settings would leak.
-func resetAutoMatch(t *testing.T, pool *pgxpool.Pool) {
+func resetAutoMatch(t *testing.T, pool database.DB) {
 	t.Helper()
 	clear := func() {
 		if _, err := pool.Exec(context.Background(), `DELETE FROM app_setting WHERE key LIKE 'auto\_match.%'`); err != nil {
@@ -132,7 +133,7 @@ func resetAutoMatch(t *testing.T, pool *pgxpool.Pool) {
 	t.Cleanup(clear)
 }
 
-func linkCount(t *testing.T, pool *pgxpool.Pool, kind string, id int64) int {
+func linkCount(t *testing.T, pool database.DB, kind string, id int64) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM match_link WHERE kind = $1 AND entity_id = $2`, kind, id).Scan(&n); err != nil {

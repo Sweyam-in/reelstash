@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/qbit"
 )
@@ -44,7 +44,7 @@ type Settings struct {
 }
 
 // LoadSettings reads the saved settings.
-func LoadSettings(ctx context.Context, db *pgxpool.Pool) Settings {
+func LoadSettings(ctx context.Context, db database.DB) Settings {
 	var s Settings
 	var raw string
 	if err := db.QueryRow(ctx, `SELECT value FROM app_setting WHERE key = $1`, settingsKey).Scan(&raw); err == nil {
@@ -54,7 +54,7 @@ func LoadSettings(ctx context.Context, db *pgxpool.Pool) Settings {
 }
 
 // SaveSettings replaces the saved settings.
-func SaveSettings(ctx context.Context, db *pgxpool.Pool, s Settings) error {
+func SaveSettings(ctx context.Context, db database.DB, s Settings) error {
 	raw, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -156,7 +156,7 @@ type storageRow struct {
 	mount string
 }
 
-func loadStorage(ctx context.Context, db *pgxpool.Pool) ([]storageRow, error) {
+func loadStorage(ctx context.Context, db database.DB) ([]storageRow, error) {
 	rows, err := db.Query(ctx, `SELECT id, name, mount_path FROM storage_location ORDER BY length(mount_path) DESC`)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ var ErrOutsideStorage = errors.New("that folder is not on a storage location")
 
 // ResolveDir turns a storage location and a relative folder into an
 // absolute path, refusing paths that climb out of the location.
-func ResolveDir(ctx context.Context, db *pgxpool.Pool, storageLocationID int64, rel string) (string, error) {
+func ResolveDir(ctx context.Context, db database.DB, storageLocationID int64, rel string) (string, error) {
 	var mount string
 	if err := db.QueryRow(ctx, `SELECT mount_path FROM storage_location WHERE id = $1`, storageLocationID).Scan(&mount); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -212,7 +212,7 @@ func locate(storage []storageRow, abs string) (Location, bool) {
 }
 
 // Locate finds the storage location holding abs.
-func Locate(ctx context.Context, db *pgxpool.Pool, abs string) (Location, error) {
+func Locate(ctx context.Context, db database.DB, abs string) (Location, error) {
 	storage, err := loadStorage(ctx, db)
 	if err != nil {
 		return Location{}, err
@@ -231,7 +231,7 @@ type libraryRoot struct {
 	abs       string
 }
 
-func loadLibraryRoots(ctx context.Context, db *pgxpool.Pool) ([]libraryRoot, error) {
+func loadLibraryRoots(ctx context.Context, db database.DB) ([]libraryRoot, error) {
 	rows, err := db.Query(ctx, `
 		SELECT lr.library_id, l.name, sl.mount_path, lr.path
 		FROM library_root lr
@@ -270,7 +270,7 @@ func libraryFor(roots []libraryRoot, abs string) (libraryRoot, bool) {
 }
 
 // SetProtected replaces the downloads-owned locked folder ("" removes it).
-func SetProtected(ctx context.Context, db *pgxpool.Pool, abs string) error {
+func SetProtected(ctx context.Context, db database.DB, abs string) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
@@ -291,7 +291,7 @@ func SetProtected(ctx context.Context, db *pgxpool.Pool, abs string) error {
 // library folder: locking it would hide the whole library from scans. A
 // folder inside a library is fine (a library may span a whole disk); being
 // locked is what keeps scans out of it.
-func CheckIncompleteDir(ctx context.Context, db *pgxpool.Pool, abs string) error {
+func CheckIncompleteDir(ctx context.Context, db database.DB, abs string) error {
 	roots, err := loadLibraryRoots(ctx, db)
 	if err != nil {
 		return err

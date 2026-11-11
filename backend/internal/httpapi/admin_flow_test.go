@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/config"
 	"reelstash/backend/internal/jobs"
@@ -142,7 +141,7 @@ func jobsRig(t *testing.T) (*harness, *jobs.Runner) {
 	return h, runner
 }
 
-func waitJob(t *testing.T, pool *pgxpool.Pool, id int64, status string) {
+func waitJob(t *testing.T, pool database.DB, id int64, status string) {
 	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		var s string
@@ -157,11 +156,11 @@ func waitJob(t *testing.T, pool *pgxpool.Pool, id int64, status string) {
 func TestBackgroundJobsAPI(t *testing.T) {
 	h, runner := jobsRig(t)
 	done := make(chan struct{})
-	runner.Register("DUPLICATE_SCAN", func(ctx context.Context, _ *pgxpool.Pool, _ int64, _ json.RawMessage) (any, error) {
+	runner.Register("DUPLICATE_SCAN", func(ctx context.Context, _ database.DB, _ int64, _ json.RawMessage) (any, error) {
 		<-done
 		return map[string]int{"groups": 2}, nil
 	})
-	runner.Register("STUDIO_SYNC", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) {
+	runner.Register("STUDIO_SYNC", func(context.Context, database.DB, int64, json.RawMessage) (any, error) {
 		return nil, context.DeadlineExceeded
 	})
 

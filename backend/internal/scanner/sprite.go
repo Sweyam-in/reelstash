@@ -14,13 +14,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -59,7 +59,7 @@ func spriteLayout(duration float64) (interval float64, count, columns, rows int)
 }
 
 // mediaFileSource loads where a media file lives on disk and its stored duration.
-func mediaFileSource(ctx context.Context, db *pgxpool.Pool, mediaFileID int64) (path string, duration float64, err error) {
+func mediaFileSource(ctx context.Context, db database.DB, mediaFileID int64) (path string, duration float64, err error) {
 	var mount, rel string
 	var dur *float64
 	err = db.QueryRow(ctx, `
@@ -153,7 +153,7 @@ feed:
 
 // GenerateSprite builds and records the scrub-preview sheet for a media file,
 // replacing any earlier one.
-func GenerateSprite(ctx context.Context, db *pgxpool.Pool, spriteDir string, mediaFileID int64) error {
+func GenerateSprite(ctx context.Context, db database.DB, spriteDir string, mediaFileID int64) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("ffmpeg not available: %w", err)
 	}
@@ -244,7 +244,7 @@ func renderPreview(ctx context.Context, src, out string, starts []float64, lengt
 }
 
 // GeneratePreview builds and records the hover preview clip for a media file.
-func GeneratePreview(ctx context.Context, db *pgxpool.Pool, previewDir string, mediaFileID int64) error {
+func GeneratePreview(ctx context.Context, db database.DB, previewDir string, mediaFileID int64) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("ffmpeg not available: %w", err)
 	}
@@ -338,7 +338,7 @@ func (s *Scanner) runBulk(ctx context.Context, jobID int64, ids []int64, generat
 	return map[string]int{"generated": generated, "failed": failed, "total": len(ids)}, nil
 }
 
-func (s *Scanner) handleSpriteJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleSpriteJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var p SpriteJobPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, err
@@ -349,7 +349,7 @@ func (s *Scanner) handleSpriteJob(ctx context.Context, db *pgxpool.Pool, jobID i
 	return map[string]any{"mediaFileId": p.MediaFileID}, nil
 }
 
-func (s *Scanner) handlePreviewJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handlePreviewJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var p SpriteJobPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func (s *Scanner) handlePreviewJob(ctx context.Context, db *pgxpool.Pool, jobID 
 	return map[string]any{"mediaFileId": p.MediaFileID}, nil
 }
 
-func (s *Scanner) handleSpriteScanJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleSpriteScanJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	ids, err := s.primaryFileIDs(ctx, `SELECT 1 FROM scrub_sprite ss WHERE ss.media_file_id = primary_file.id`)
 	if err != nil {
 		return nil, err
@@ -370,7 +370,7 @@ func (s *Scanner) handleSpriteScanJob(ctx context.Context, db *pgxpool.Pool, job
 	})
 }
 
-func (s *Scanner) handlePreviewScanJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handlePreviewScanJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	ids, err := s.primaryFileIDs(ctx, `SELECT 1 FROM preview_clip pc WHERE pc.media_file_id = primary_file.id`)
 	if err != nil {
 		return nil, err
@@ -382,7 +382,7 @@ func (s *Scanner) handlePreviewScanJob(ctx context.Context, db *pgxpool.Pool, jo
 
 // handleThumbnailFixJob replaces thumbnails that are black or flat with a
 // better frame from the same video.
-func (s *Scanner) handleThumbnailFixJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleThumbnailFixJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	type thumb struct {
 		id, itemID int64
 		fileID     *int64

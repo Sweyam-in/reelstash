@@ -3,11 +3,10 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"sort"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/pathguard"
 )
@@ -184,7 +183,7 @@ func NewRuleSet(global []string, byLibrary map[int64][]string, roots map[string]
 
 // LoadRules builds the rule set for one storage location from the scan rules
 // and the library folders on it.
-func LoadRules(ctx context.Context, db *pgxpool.Pool, storageLocationID int64) (*RuleSet, error) {
+func LoadRules(ctx context.Context, db database.DB, storageLocationID int64) (*RuleSet, error) {
 	rows, err := db.Query(ctx, `SELECT library_id, pattern FROM scan_rule`)
 	if err != nil {
 		return nil, err

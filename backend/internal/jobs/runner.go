@@ -9,11 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reelstash/backend/internal/database"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Finished describes a job that just reached COMPLETED or FAILED.
@@ -50,10 +49,10 @@ func finished(f Finished) {
 	}
 }
 
-type Handler func(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (result any, err error)
+type Handler func(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (result any, err error)
 
 type Runner struct {
-	db       *pgxpool.Pool
+	db       database.DB
 	handlers map[string]Handler
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -70,7 +69,7 @@ type Runner struct {
 	userCancelled map[int64]bool
 }
 
-func NewRunner(db *pgxpool.Pool, workers int) *Runner {
+func NewRunner(db database.DB, workers int) *Runner {
 	if workers < 1 {
 		workers = 1
 	}
@@ -356,7 +355,7 @@ func (r *Runner) run(id int64) {
 
 // ReportProgress records how far a running job has got. Best-effort: a
 // failed write is ignored because progress is purely informational.
-func ReportProgress(db *pgxpool.Pool, id int64, done, total int, label string) {
+func ReportProgress(db database.DB, id int64, done, total int, label string) {
 	if id == 0 {
 		return
 	}

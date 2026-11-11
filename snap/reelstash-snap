@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+data="${SNAP_USER_COMMON:?}"
+mkdir -p "$data"
+export DATABASE_URL="sqlite://$data/reelstash.db"
+export REELSTASH_WEB_DIR="$SNAP/web"
+export REELSTASH_THUMBNAIL_DIR="$data/thumbnails"
+export REELSTASH_POSTER_DIR="$data/posters"
+export REELSTASH_ADDR="127.0.0.1:8902"
+export REELSTASH_PUBLIC_ORIGIN="http://127.0.0.1:8902"
+"$SNAP/bin/reelstash-server" &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
+for _ in $(seq 1 50); do
+  if curl --silent --fail http://127.0.0.1:8902/healthz >/dev/null; then
+    xdg-open http://127.0.0.1:8902/ >/dev/null 2>&1 || true
+    break
+  fi
+  sleep 0.1
+done
+wait "$server_pid"

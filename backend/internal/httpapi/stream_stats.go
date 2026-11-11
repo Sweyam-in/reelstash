@@ -5,10 +5,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"reelstash/backend/internal/database"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // streamActiveWindow is how long after its last request a stream still
@@ -42,7 +41,7 @@ var streams = &streamStats{active: map[streamKey]activeStream{}}
 
 func today() string { return time.Now().Format("2006-01-02") }
 
-func (s *streamStats) rollDay(db *pgxpool.Pool) {
+func (s *streamStats) rollDay(db database.DB) {
 	if d := today(); d != s.day {
 		if s.day != "" {
 			s.flushLocked(db)
@@ -53,7 +52,7 @@ func (s *streamStats) rollDay(db *pgxpool.Pool) {
 }
 
 // touch notes a request for a stream; it returns the number playing now.
-func (s *streamStats) touch(db *pgxpool.Pool, key streamKey, kind string) {
+func (s *streamStats) touch(db database.DB, key streamKey, kind string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rollDay(db)
@@ -64,7 +63,7 @@ func (s *streamStats) touch(db *pgxpool.Pool, key streamKey, kind string) {
 	}
 }
 
-func (s *streamStats) add(db *pgxpool.Pool, kind string, n int64) {
+func (s *streamStats) add(db database.DB, kind string, n int64) {
 	if n <= 0 {
 		return
 	}
@@ -106,7 +105,7 @@ func (s *streamStats) Now() (total, direct, hls int) {
 	return direct + hls, direct, hls
 }
 
-func (s *streamStats) flushLocked(db *pgxpool.Pool) {
+func (s *streamStats) flushLocked(db database.DB) {
 	if s.day == "" || (s.direct == 0 && s.hls == 0 && s.peak == 0) {
 		return
 	}
@@ -125,7 +124,7 @@ func (s *streamStats) flushLocked(db *pgxpool.Pool) {
 	s.direct, s.hls = 0, 0
 }
 
-func (s *streamStats) flush(db *pgxpool.Pool) {
+func (s *streamStats) flush(db database.DB) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rollDay(db)

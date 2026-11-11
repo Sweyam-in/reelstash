@@ -7,13 +7,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/auth"
 	"reelstash/backend/internal/config"
@@ -23,7 +23,7 @@ import (
 // "private/"), a title in each, a performer in each, and a user who may only
 // open the movies library.
 type libraryFixture struct {
-	pool                 *pgxpool.Pool
+	pool                 database.DB
 	handler              http.Handler
 	mount                string
 	disk                 int64

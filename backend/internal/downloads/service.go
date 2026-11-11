@@ -5,12 +5,11 @@ import (
 	"errors"
 	"log"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/pathguard"
@@ -39,7 +38,7 @@ type Notifier func(ctx context.Context, failed bool, title, body string)
 
 // Service is the live link to qBittorrent.
 type Service struct {
-	DB     *pgxpool.Pool
+	DB     database.DB
 	Runner *jobs.Runner
 	// Env is the connection from the environment, used for fields the admin
 	// has not saved.
@@ -65,7 +64,7 @@ type Service struct {
 }
 
 // New returns a service; call Run to start polling.
-func New(db *pgxpool.Pool, runner *jobs.Runner, env qbit.Config, notify Notifier) *Service {
+func New(db database.DB, runner *jobs.Runner, env qbit.Config, notify Notifier) *Service {
 	s := &Service{DB: db, Runner: runner, Env: env, Notify: notify, state: qbit.NewState(), kick: make(chan struct{}, 1)}
 	pathguard.SetInUseSource(s.InUse)
 	return s

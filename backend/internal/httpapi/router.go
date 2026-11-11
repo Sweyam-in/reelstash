@@ -5,10 +5,10 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"reelstash/backend/internal/database"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/authplugin"
 	"reelstash/backend/internal/config"
@@ -23,7 +23,7 @@ import (
 )
 
 type API struct {
-	DB      *pgxpool.Pool
+	DB      database.DB
 	Cfg     config.Config
 	Jobs    *jobs.Runner
 	Scanner *scanner.Scanner
@@ -63,7 +63,7 @@ func WithBackground(ctx context.Context) Option {
 	return func(a *API) { a.background = ctx }
 }
 
-func NewRouter(db *pgxpool.Pool, cfg config.Config, jobRunner *jobs.Runner, sc *scanner.Scanner, namerEngine *namer.Engine, hub *events.Hub, notifier *notify.Service, opts ...Option) http.Handler {
+func NewRouter(db database.DB, cfg config.Config, jobRunner *jobs.Runner, sc *scanner.Scanner, namerEngine *namer.Engine, hub *events.Hub, notifier *notify.Service, opts ...Option) http.Handler {
 	api := &API{DB: db, Cfg: cfg, Jobs: jobRunner, Scanner: sc, Namer: namerEngine, Hub: hub, Notify: notifier, throttle: newLoginThrottle()}
 	for _, opt := range opts {
 		opt(api)

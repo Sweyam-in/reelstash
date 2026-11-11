@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/pathguard"
@@ -19,7 +18,7 @@ import (
 )
 
 type fixture struct {
-	pool    *pgxpool.Pool
+	pool    database.DB
 	fake    *qbittest.Server
 	svc     *Service
 	mount   string
@@ -46,7 +45,7 @@ func newFixture(t *testing.T) *fixture {
 		t.Fatal(err)
 	}
 	runner := jobs.NewRunner(f.pool, 1)
-	runner.Register("SCAN", func(context.Context, *pgxpool.Pool, int64, json.RawMessage) (any, error) { return nil, nil })
+	runner.Register("SCAN", func(context.Context, database.DB, int64, json.RawMessage) (any, error) { return nil, nil })
 	t.Cleanup(func() { runner.Shutdown(time.Second) })
 	if err := SaveSettings(ctx, f.pool, Settings{URL: f.fake.URL, AutoMove: true, RulesSince: 100}); err != nil {
 		t.Fatal(err)

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"reelstash/backend/internal/database"
 )
 
 var processStart = time.Now()
@@ -113,7 +115,15 @@ func (a *API) adminHealth(w http.ResponseWriter, r *http.Request) {
 	if dbErr != nil {
 		add("database", "Database", "error", dbErr.Error())
 	} else {
-		_ = a.DB.QueryRow(ctx, `SELECT pg_database_size(current_database()), current_setting('server_version')`).Scan(&p.Database.SizeBytes, &p.Database.Version)
+		if _, ok := a.DB.(*database.SQLite); ok {
+			var pages, pageSize int64
+			_ = a.DB.QueryRow(ctx, `SELECT sqlite_version()`).Scan(&p.Database.Version)
+			_ = a.DB.QueryRow(ctx, `PRAGMA page_count`).Scan(&pages)
+			_ = a.DB.QueryRow(ctx, `PRAGMA page_size`).Scan(&pageSize)
+			p.Database.SizeBytes = pages * pageSize
+		} else {
+			_ = a.DB.QueryRow(ctx, `SELECT pg_database_size(current_database()), current_setting('server_version')`).Scan(&p.Database.SizeBytes, &p.Database.Version)
+		}
 		status := "ok"
 		if p.Database.LatencyMs > 250 {
 			status = "warning"
@@ -121,7 +131,9 @@ func (a *API) adminHealth(w http.ResponseWriter, r *http.Request) {
 		add("database", "Database", status, "Responding in "+formatMs(p.Database.LatencyMs))
 	}
 	stat := a.DB.Stat()
-	p.Database.PoolTotal, p.Database.PoolIdle, p.Database.PoolInUse, p.Database.PoolMax = stat.TotalConns(), stat.IdleConns(), stat.AcquiredConns(), stat.MaxConns()
+	if stat != nil {
+		p.Database.PoolTotal, p.Database.PoolIdle, p.Database.PoolInUse, p.Database.PoolMax = stat.TotalConns(), stat.IdleConns(), stat.AcquiredConns(), stat.MaxConns()
+	}
 
 	// Jobs
 	_ = a.DB.QueryRow(ctx, `

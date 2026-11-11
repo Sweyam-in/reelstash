@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"math"
 	"os/exec"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type probeFormat struct {
@@ -69,7 +68,7 @@ func (p ProbeResult) RotationOrNil(probeErr error) *int {
 
 // SaveRotation records a file's probed rotation, which decides (with its
 // frame size) whether it shows among the reels.
-func SaveRotation(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, p ProbeResult) error {
+func SaveRotation(ctx context.Context, db database.DB, mediaFileID int64, p ProbeResult) error {
 	_, err := db.Exec(ctx, `UPDATE media_file SET rotation = $2 WHERE id = $1`, mediaFileID, p.RotationOrNil(nil))
 	return err
 }

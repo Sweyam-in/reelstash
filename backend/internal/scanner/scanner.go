@@ -14,12 +14,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/diskinfo"
 	"reelstash/backend/internal/jobs"
@@ -54,7 +54,7 @@ type fileTask struct {
 }
 
 type Scanner struct {
-	DB   *pgxpool.Pool
+	DB   database.DB
 	Jobs *jobs.Runner
 	// ThumbnailJobs is a separate worker pool for THUMBNAIL jobs. It is
 	// deliberately not the same Runner as Jobs (which runs SCAN): a
@@ -86,7 +86,7 @@ type MetadataMatcher interface {
 	Lookup(ctx context.Context, mediaFileID int64) (status string, err error)
 }
 
-func New(db *pgxpool.Pool, jobRunner, thumbnailJobRunner *jobs.Runner, thumbnailDir string, fileWorkers int) *Scanner {
+func New(db database.DB, jobRunner, thumbnailJobRunner *jobs.Runner, thumbnailDir string, fileWorkers int) *Scanner {
 	if fileWorkers < 1 {
 		fileWorkers = 1
 	}
@@ -264,7 +264,7 @@ func (s *Scanner) flushScanProgress(scanJobID int64, live *liveScan) {
 	`, scanJobID, snap.discovered, snap.changed, snap.filesSeen, snap.filesProcessed, nullIfEmpty(snap.currentPath), recent, snap.phase, snap.walkComplete)
 }
 
-func (s *Scanner) handleScanJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleScanJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var p ScanJobPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, err
@@ -557,7 +557,7 @@ type MetadataMatchPayload struct {
 	MediaItemIDs []int64 `json:"mediaItemIds,omitempty"`
 }
 
-func (s *Scanner) handleMetadataMatchJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleMetadataMatchJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var p MetadataMatchPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, err

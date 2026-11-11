@@ -50,6 +50,7 @@ ui/build/
 # Application Data
 data/
 backend/data/
+/dist/
 
 # Retired native project: keep any local build files and signing material out of Git
 /mobile/

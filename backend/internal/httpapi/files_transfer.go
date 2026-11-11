@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -92,7 +91,7 @@ func (a *API) startFileTransfer(w http.ResponseWriter, r *http.Request) {
 // handled one at a time; one that fails is reported and the rest carry on.
 // Progress is in KiB (progress_done/total are 32-bit), labelled with the
 // item being worked on.
-func FileTransferJob(ctx context.Context, db *pgxpool.Pool, jobID int64, raw json.RawMessage) (any, error) {
+func FileTransferJob(ctx context.Context, db database.DB, jobID int64, raw json.RawMessage) (any, error) {
 	var p fileTransferPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return nil, err
@@ -166,7 +165,7 @@ func FileTransferJob(ctx context.Context, db *pgxpool.Pool, jobID int64, raw jso
 }
 
 // transferOne moves or copies one entry and returns the name it landed under.
-func transferOne(ctx context.Context, db *pgxpool.Pool, p fileTransferPayload, name string, t fileTransfer, onBytes func(int64)) (string, error) {
+func transferOne(ctx context.Context, db database.DB, p fileTransferPayload, name string, t fileTransfer, onBytes func(int64)) (string, error) {
 	if p.Mode == "copy" {
 		landed := uniqueCopyName(t.absDestDir, name)
 		dst := filepath.Join(t.absDestDir, landed)
@@ -191,7 +190,7 @@ func transferOne(ctx context.Context, db *pgxpool.Pool, p fileTransferPayload, n
 // saveTransferDone records finished items on the job row. Best-effort: losing
 // it only means a resumed copy duplicates an item, or a resumed move reports
 // an item it already moved as missing.
-func saveTransferDone(db *pgxpool.Pool, jobID int64, done map[string]string) {
+func saveTransferDone(db database.DB, jobID int64, done map[string]string) {
 	if jobID == 0 {
 		return
 	}
@@ -225,7 +224,7 @@ func treeSize(path string) int64 {
 // transferProgress reports bytes copied to the job row, at most every
 // transferProgressEvery.
 type transferProgress struct {
-	db    *pgxpool.Pool
+	db    database.DB
 	jobID int64
 	total int64
 

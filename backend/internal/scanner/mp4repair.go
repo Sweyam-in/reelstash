@@ -10,10 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/diskinfo"
 	"reelstash/backend/internal/jobs"
@@ -63,7 +62,7 @@ func (s *Scanner) enqueueMP4Repair(ctx context.Context, storageLocationID int64)
 // layout was recorded) are checked first.
 //
 // A storage location is skipped while a scan or the organizer is working on it.
-func (s *Scanner) handleMP4RepairJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleMP4RepairJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var only struct {
 		StorageLocationID int64 `json:"storageLocationId"`
 	}
@@ -163,7 +162,7 @@ func (s *Scanner) handleMP4RepairJob(ctx context.Context, db *pgxpool.Pool, jobI
 
 // repairMP4File rewrites one file with a single data box and records the new
 // file on its media_file row, so the next scan sees it as unchanged.
-func (s *Scanner) repairMP4File(ctx context.Context, db *pgxpool.Pool, fileID int64, path string) error {
+func (s *Scanner) repairMP4File(ctx context.Context, db database.DB, fileID int64, path string) error {
 	info, err := RewriteMP4(ctx, path)
 	if err != nil {
 		return err

@@ -6,11 +6,11 @@ import (
 	"encoding/xml"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/names"
 	"reelstash/backend/internal/slug"
@@ -151,7 +151,7 @@ func (m nfoMovie) LinkHints() []NFOID {
 
 // importNFOLinks records the provider links an NFO declares. It never replaces
 // a link that already exists.
-func importNFOLinks(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, movie nfoMovie) error {
+func importNFOLinks(ctx context.Context, db database.DB, mediaItemID int64, movie nfoMovie) error {
 	hints := movie.LinkHints()
 	for _, h := range hints {
 		if _, err := db.Exec(ctx, `
@@ -170,7 +170,7 @@ func importNFOLinks(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, mo
 
 // RefreshNFOLinksFromFile checks an already-imported NFO for provider IDs
 // introduced by a newer parser without replacing the title's metadata.
-func RefreshNFOLinksFromFile(ctx context.Context, db *pgxpool.Pool, mediaFileID, mediaItemID int64, path string) error {
+func RefreshNFOLinksFromFile(ctx context.Context, db database.DB, mediaFileID, mediaItemID int64, path string) error {
 	movie, err := parseNFO(path)
 	if err != nil {
 		return err
@@ -210,7 +210,7 @@ func parseNFO(path string) (nfoMovie, error) {
 // applies its fields to the media_item unless that item's metadata is
 // protected (metadata_source = MANUAL), per the "never silently overwrite a
 // manual edit" rule.
-func ImportNFO(ctx context.Context, db *pgxpool.Pool, mediaFileID, mediaItemID int64, storageLocationID int64, relativePath, nfoPath string) error {
+func ImportNFO(ctx context.Context, db database.DB, mediaFileID, mediaItemID int64, storageLocationID int64, relativePath, nfoPath string) error {
 	movie, err := parseNFO(nfoPath)
 	if err != nil {
 		return err
@@ -311,7 +311,7 @@ func ImportNFO(ctx context.Context, db *pgxpool.Pool, mediaFileID, mediaItemID i
 }
 
 // recordNFO upserts the nfo_metadata row for a media file's NFO.
-func recordNFO(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, relativePath string, movie nfoMovie, contentHash string) error {
+func recordNFO(ctx context.Context, db database.DB, mediaFileID int64, relativePath string, movie nfoMovie, contentHash string) error {
 	parsed, _ := json.Marshal(movie)
 	_, err := db.Exec(ctx, `
 		INSERT INTO nfo_metadata (media_file_id, relative_path, parsed_metadata, content_hash, imported_at, updated_at)
@@ -329,7 +329,7 @@ func recordNFO(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, relativ
 // findOrCreateStudio resolves an NFO studio name. A name that was merged into
 // another studio is stored as an alias, so it lands on the surviving record
 // instead of resurrecting the duplicate.
-func findOrCreateStudio(ctx context.Context, db *pgxpool.Pool, name string) (int64, error) {
+func findOrCreateStudio(ctx context.Context, db database.DB, name string) (int64, error) {
 	var id int64
 	if db.QueryRow(ctx, `SELECT id FROM studio WHERE name = $1`, name).Scan(&id) == nil {
 		return id, nil
@@ -353,7 +353,7 @@ func findOrCreateStudio(ctx context.Context, db *pgxpool.Pool, name string) (int
 // findOrCreatePerformer resolves an NFO actor name to a performer. A name that
 // was merged into another performer is stored as an alias, so it lands on the
 // surviving record instead of resurrecting the duplicate.
-func findOrCreatePerformer(ctx context.Context, db *pgxpool.Pool, name string) (int64, error) {
+func findOrCreatePerformer(ctx context.Context, db database.DB, name string) (int64, error) {
 	var id int64
 	err := db.QueryRow(ctx, `SELECT id FROM performer WHERE name = $1`, name).Scan(&id)
 	if err == nil {
@@ -383,7 +383,7 @@ func findOrCreatePerformer(ctx context.Context, db *pgxpool.Pool, name string) (
 
 // PerformerByKey finds the one performer whose name or alias normalizes to the
 // same key as name.
-func PerformerByKey(ctx context.Context, db *pgxpool.Pool, name string) (int64, bool) {
+func PerformerByKey(ctx context.Context, db database.DB, name string) (int64, bool) {
 	key := names.Key(name)
 	if key == "" {
 		return 0, false
@@ -414,7 +414,7 @@ func PerformerByKey(ctx context.Context, db *pgxpool.Pool, name string) (int64, 
 	return 0, false
 }
 
-func attachPerformers(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, names []string) error {
+func attachPerformers(ctx context.Context, db database.DB, mediaItemID int64, names []string) error {
 	for i, name := range names {
 		performerID, err := findOrCreatePerformer(ctx, db, name)
 		if err != nil {
@@ -431,7 +431,7 @@ func attachPerformers(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, 
 	return nil
 }
 
-func attachCategories(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, names []string) error {
+func attachCategories(ctx context.Context, db database.DB, mediaItemID int64, names []string) error {
 	for _, name := range names {
 		if name == "" {
 			continue

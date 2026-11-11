@@ -7,10 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reelstash/backend/internal/database"
 	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/events"
 	"reelstash/backend/internal/jobs"
@@ -58,11 +57,11 @@ type Event struct {
 }
 
 type Service struct {
-	DB  *pgxpool.Pool
+	DB  database.DB
 	Hub *events.Hub
 }
 
-func New(db *pgxpool.Pool, hub *events.Hub) *Service {
+func New(db database.DB, hub *events.Hub) *Service {
 	return &Service{DB: db, Hub: hub}
 }
 

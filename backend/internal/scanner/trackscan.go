@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -58,7 +57,7 @@ func (s *Scanner) BackfillRotation(ctx context.Context) {
 // otherwise only read the first time they play) and recounts the subtitle
 // files lying next to each video. An optional storageLocationId narrows it to
 // one location.
-func (s *Scanner) handleTrackScanJob(ctx context.Context, db *pgxpool.Pool, jobID int64, payload json.RawMessage) (any, error) {
+func (s *Scanner) handleTrackScanJob(ctx context.Context, db database.DB, jobID int64, payload json.RawMessage) (any, error) {
 	var only struct {
 		StorageLocationID int64 `json:"storageLocationId"`
 	}

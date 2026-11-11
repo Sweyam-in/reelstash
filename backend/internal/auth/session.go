@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"reelstash/backend/internal/database"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const SessionTTL = 30 * 24 * time.Hour
@@ -27,7 +27,7 @@ type User struct {
 // UpsertIdentityUser creates or updates the local app_user row for an identity
 // a sign-in plugin verified. The plugin owns the credential; only profile
 // fields and role are kept here, and an existing admin is never demoted.
-func UpsertIdentityUser(ctx context.Context, db *pgxpool.Pool, claims Claims, role string) (User, error) {
+func UpsertIdentityUser(ctx context.Context, db database.DB, claims Claims, role string) (User, error) {
 	var u User
 	err := db.QueryRow(ctx, `
 		INSERT INTO app_user (auth_subject, email, display_name, avatar_url, role, last_login_at)
@@ -47,7 +47,7 @@ func UpsertIdentityUser(ctx context.Context, db *pgxpool.Pool, claims Claims, ro
 
 // UpsertLocalAdmin creates or reuses the single emergency-local-auth admin
 // identity. This path is only reachable when EMERGENCY_LOCAL_AUTH=true.
-func UpsertLocalAdmin(ctx context.Context, db *pgxpool.Pool) (User, error) {
+func UpsertLocalAdmin(ctx context.Context, db database.DB) (User, error) {
 	var u User
 	err := db.QueryRow(ctx, `
 		INSERT INTO app_user (auth_subject, display_name, role, last_login_at)
@@ -61,7 +61,7 @@ func UpsertLocalAdmin(ctx context.Context, db *pgxpool.Pool) (User, error) {
 // CreateSession opens a session for a user. plugin names the sign-in plugin
 // that authenticated them ("" for ReelStash's own accounts), so sign-out can
 // send them to that provider's logout page.
-func CreateSession(ctx context.Context, db *pgxpool.Pool, userID int64, plugin string) (id string, expiresAt time.Time, err error) {
+func CreateSession(ctx context.Context, db database.DB, userID int64, plugin string) (id string, expiresAt time.Time, err error) {
 	id, err = randomToken()
 	if err != nil {
 		return "", time.Time{}, err
@@ -71,14 +71,14 @@ func CreateSession(ctx context.Context, db *pgxpool.Pool, userID int64, plugin s
 	return id, expiresAt, err
 }
 
-func DeleteSession(ctx context.Context, db *pgxpool.Pool, id string) error {
+func DeleteSession(ctx context.Context, db database.DB, id string) error {
 	_, err := db.Exec(ctx, `DELETE FROM web_session WHERE id = $1`, id)
 	return err
 }
 
 var ErrSessionNotFound = pgx.ErrNoRows
 
-func LoadSessionUser(ctx context.Context, db *pgxpool.Pool, sessionID string) (User, error) {
+func LoadSessionUser(ctx context.Context, db database.DB, sessionID string) (User, error) {
 	var u User
 	err := db.QueryRow(ctx, `
 		SELECT u.id, u.auth_subject, COALESCE(u.email, ''), COALESCE(u.display_name, ''), COALESCE(u.avatar_url, ''), u.role, u.disabled
@@ -108,7 +108,7 @@ func randomToken() (string, error) {
 
 // SessionPlugin is the sign-in plugin that opened a session, or "" (password
 // accounts, and sessions from before plugins were recorded).
-func SessionPlugin(ctx context.Context, db *pgxpool.Pool, sessionID string) string {
+func SessionPlugin(ctx context.Context, db database.DB, sessionID string) string {
 	var plugin *string
 	_ = db.QueryRow(ctx, `SELECT auth_plugin FROM web_session WHERE id = $1`, sessionID).Scan(&plugin)
 	if plugin == nil {

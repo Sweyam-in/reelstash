@@ -14,13 +14,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/pathguard"
 	"reelstash/backend/internal/provider"
@@ -30,7 +30,7 @@ import (
 )
 
 type Engine struct {
-	DB *pgxpool.Pool
+	DB database.DB
 	// Providers is the metadata-provider registry used for title matching.
 	Providers      *provider.Registry
 	Scanner        *scanner.Scanner
@@ -38,7 +38,7 @@ type Engine struct {
 	PosterDir      string
 }
 
-func New(db *pgxpool.Pool, providers *provider.Registry, sc *scanner.Scanner, renameTemplate, posterDir string) *Engine {
+func New(db database.DB, providers *provider.Registry, sc *scanner.Scanner, renameTemplate, posterDir string) *Engine {
 	return &Engine{DB: db, Providers: providers, Scanner: sc, RenameTemplate: renameTemplate, PosterDir: posterDir}
 }
 

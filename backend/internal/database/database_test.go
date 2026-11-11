@@ -2,11 +2,82 @@ package database_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"reelstash/backend/internal/database"
 	"reelstash/backend/internal/testdb"
 )
+
+func TestSQLiteCreatesCurrentSchema(t *testing.T) {
+	ctx := context.Background()
+	store, err := database.OpenSQLite(ctx, filepath.Join(t.TempDir(), "reelstash.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := database.Migrate(ctx, store); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Migrate(ctx, store); err != nil {
+		t.Fatalf("repeat migration: %v", err)
+	}
+	var tables int
+	if err := store.QueryRow(ctx, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil {
+		t.Fatal(err)
+	}
+	if tables != 65 {
+		t.Errorf("SQLite tables = %d, want 65", tables)
+	}
+}
+
+func TestSQLitePreservesNumberedParameterOrder(t *testing.T) {
+	ctx := context.Background()
+	store, err := database.OpenSQLite(ctx, filepath.Join(t.TempDir(), "parameters.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if _, err := store.Exec(ctx, `CREATE TABLE item (id INTEGER PRIMARY KEY, status TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Exec(ctx, `INSERT INTO item (id, status) VALUES ($1, $2)`, 1, "RUNNING"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Exec(ctx, `UPDATE item SET status = $2 WHERE id = $1`, 1, "COMPLETED"); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := store.QueryRow(ctx, `SELECT status FROM item WHERE id = $1`, 1).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "COMPLETED" {
+		t.Fatalf("status = %q, want COMPLETED", status)
+	}
+}
+
+func TestSQLiteSearchFunctions(t *testing.T) {
+	ctx := context.Background()
+	store, err := database.OpenSQLite(ctx, filepath.Join(t.TempDir(), "search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	var word, full float64
+	if err := store.QueryRow(ctx, `SELECT word_similarity('matrix', 'The Matrix'), similarity('Matrix', 'matrix')`).Scan(&word, &full); err != nil {
+		t.Fatal(err)
+	}
+	if word < 0.9 || full < 0.9 {
+		t.Fatalf("search scores too low: word=%f full=%f", word, full)
+	}
+	var ordered string
+	if err := store.QueryRow(ctx, `SELECT array_agg(value ORDER BY value) FROM (SELECT 'b' AS value UNION ALL SELECT 'a')`).Scan(&ordered); err != nil {
+		t.Fatal(err)
+	}
+	if ordered != `["a","b"]` {
+		t.Fatalf("ordered aggregate = %q", ordered)
+	}
+}
 
 func TestMigrateBuildsSchemaAndIsIdempotent(t *testing.T) {
 	pool := testdb.Isolated(t) // already migrated once

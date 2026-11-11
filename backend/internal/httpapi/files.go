@@ -8,12 +8,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/pathguard"
 )
@@ -36,7 +35,7 @@ func (a *API) resolveStorageDir(r *http.Request, storageLocationID int64, relPat
 
 // resolveStorageIn is resolveStorageDir for code without a request, such as
 // background jobs.
-func resolveStorageIn(ctx context.Context, db *pgxpool.Pool, storageLocationID int64, relPath string) (mountPath, absPath string, err error) {
+func resolveStorageIn(ctx context.Context, db database.DB, storageLocationID int64, relPath string) (mountPath, absPath string, err error) {
 	if err = db.QueryRow(ctx, `SELECT mount_path FROM storage_location WHERE id = $1`, storageLocationID).Scan(&mountPath); err != nil {
 		return "", "", err
 	}
@@ -355,7 +354,7 @@ func (a *API) resolveTransfer(w http.ResponseWriter, r *http.Request, req moveFi
 // checkTransfer resolves and validates moving/copying srcRel on srcLoc into
 // the folder destRel on destLoc. A non-empty msg is the reason it can't,
 // with the HTTP status to report it under.
-func checkTransfer(ctx context.Context, db *pgxpool.Pool, srcLoc int64, srcRel string, destLoc int64, destRel string, verb string) (t fileTransfer, status int, msg string) {
+func checkTransfer(ctx context.Context, db database.DB, srcLoc int64, srcRel string, destLoc int64, destRel string, verb string) (t fileTransfer, status int, msg string) {
 	t = fileTransfer{srcLoc: srcLoc, destLoc: destLoc}
 	srcMount, absSrc, err := resolveStorageIn(ctx, db, srcLoc, srcRel)
 	if err != nil {
@@ -443,7 +442,7 @@ func (a *API) moveFileEntry(w http.ResponseWriter, r *http.Request) {
 // followMovedRows points tracked media_file rows at an entry's new place
 // (location and relative_path prefix); the library triggers then reassign
 // their library.
-func followMovedRows(ctx context.Context, db *pgxpool.Pool, t fileTransfer, oldRel, newRel string) {
+func followMovedRows(ctx context.Context, db database.DB, t fileTransfer, oldRel, newRel string) {
 	if t.info.IsDir() {
 		db.Exec(ctx, `
 			UPDATE media_file SET storage_location_id = $4, relative_path = $3 || substring(relative_path from length($2)+1), updated_at = now()

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"path"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/qbit"
 	"reelstash/backend/internal/rename"
@@ -62,7 +62,7 @@ func scanRule(row pgx.CollectableRow) (Rule, error) {
 }
 
 // ListRules returns the rules in the order they are checked.
-func ListRules(ctx context.Context, db *pgxpool.Pool) ([]Rule, error) {
+func ListRules(ctx context.Context, db database.DB) ([]Rule, error) {
 	rows, err := db.Query(ctx, `SELECT `+ruleColumns+` FROM download_rule r
 		LEFT JOIN storage_location sl ON sl.id = r.dest_storage_location_id
 		ORDER BY r.position, r.id`)
@@ -73,7 +73,7 @@ func ListRules(ctx context.Context, db *pgxpool.Pool) ([]Rule, error) {
 }
 
 // GetRule returns one rule.
-func GetRule(ctx context.Context, db *pgxpool.Pool, id int64) (Rule, error) {
+func GetRule(ctx context.Context, db database.DB, id int64) (Rule, error) {
 	rows, err := db.Query(ctx, `SELECT `+ruleColumns+` FROM download_rule r
 		LEFT JOIN storage_location sl ON sl.id = r.dest_storage_location_id
 		WHERE r.id = $1`, id)
@@ -127,7 +127,7 @@ func (r *Rule) Normalize() error {
 }
 
 // CreateRule adds a rule at the end of the list.
-func CreateRule(ctx context.Context, db *pgxpool.Pool, r Rule) (Rule, error) {
+func CreateRule(ctx context.Context, db database.DB, r Rule) (Rule, error) {
 	err := db.QueryRow(ctx, `
 		INSERT INTO download_rule (name, position, enabled, match_category, match_tag, match_tracker, match_name, min_size_mb,
 			video_only, dest_storage_location_id, dest_path, subfolder, scan_after, remove_after, remove_ratio, remove_seed_minutes)
@@ -143,7 +143,7 @@ func CreateRule(ctx context.Context, db *pgxpool.Pool, r Rule) (Rule, error) {
 }
 
 // UpdateRule saves a rule's fields (not its position).
-func UpdateRule(ctx context.Context, db *pgxpool.Pool, r Rule) (Rule, error) {
+func UpdateRule(ctx context.Context, db database.DB, r Rule) (Rule, error) {
 	tag, err := db.Exec(ctx, `
 		UPDATE download_rule SET name = $2, enabled = $3, match_category = $4, match_tag = $5, match_tracker = $6, match_name = $7,
 			min_size_mb = $8, video_only = $9, dest_storage_location_id = $10, dest_path = $11, subfolder = $12, scan_after = $13,
@@ -162,7 +162,7 @@ func UpdateRule(ctx context.Context, db *pgxpool.Pool, r Rule) (Rule, error) {
 }
 
 // DeleteRule removes a rule; its history rows keep the rule's name.
-func DeleteRule(ctx context.Context, db *pgxpool.Pool, id int64) error {
+func DeleteRule(ctx context.Context, db database.DB, id int64) error {
 	tag, err := db.Exec(ctx, `DELETE FROM download_rule WHERE id = $1`, id)
 	if err == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
@@ -171,7 +171,7 @@ func DeleteRule(ctx context.Context, db *pgxpool.Pool, id int64) error {
 }
 
 // ReorderRules sets the check order to ids.
-func ReorderRules(ctx context.Context, db *pgxpool.Pool, ids []int64) error {
+func ReorderRules(ctx context.Context, db database.DB, ids []int64) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err

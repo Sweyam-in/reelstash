@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reelstash/backend/internal/database"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -20,14 +20,14 @@ type Alert func(ctx context.Context, title, body string)
 // Scheduler fires the rows of scan_schedule. It checks once a minute; a run
 // missed because the server was down is not made up afterwards.
 type Scheduler struct {
-	DB     *pgxpool.Pool
+	DB     database.DB
 	Jobs   *jobs.Runner
 	Alert  Alert
 	Now    func() time.Time // for tests
 	ticker time.Duration
 }
 
-func NewScheduler(db *pgxpool.Pool, runner *jobs.Runner, alert Alert) *Scheduler {
+func NewScheduler(db database.DB, runner *jobs.Runner, alert Alert) *Scheduler {
 	return &Scheduler{DB: db, Jobs: runner, Alert: alert, Now: time.Now, ticker: time.Minute}
 }
 

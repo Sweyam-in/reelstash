@@ -2,9 +2,8 @@ package scanner
 
 import (
 	"context"
+	"reelstash/backend/internal/database"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Track is one audio or subtitle stream inside a media file.
@@ -54,7 +53,7 @@ func tracksFromStreams(streams []probeStream) []Track {
 // SaveTracks replaces a file's stored tracks with what ffprobe just found.
 // When the probe failed (ok is false) the tracks are cleared and the file is
 // marked as not probed, so they are read again the next time they are needed.
-func SaveTracks(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, tracks []Track, ok bool) error {
+func SaveTracks(ctx context.Context, db database.DB, mediaFileID int64, tracks []Track, ok bool) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err

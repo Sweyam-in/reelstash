@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/auth"
 	"reelstash/backend/internal/authplugin"
@@ -25,7 +25,7 @@ import (
 // It needs REELSTASH_TEST_DATABASE_URL and skips otherwise.
 type harness struct {
 	t       *testing.T
-	pool    *pgxpool.Pool
+	pool    database.DB
 	handler http.Handler
 	cfg     config.Config
 
@@ -184,7 +184,7 @@ func newIsolatedHarness(t *testing.T, cfg config.Config, engine *namer.Engine) *
 	return newHarnessOn(t, testdb.Isolated(t), cfg, engine)
 }
 
-func newHarnessOn(t *testing.T, pool *pgxpool.Pool, cfg config.Config, engine *namer.Engine) *harness {
+func newHarnessOn(t *testing.T, pool database.DB, cfg config.Config, engine *namer.Engine) *harness {
 	t.Helper()
 	cfg.PosterDir = t.TempDir()
 	h := &harness{t: t, pool: pool, cfg: cfg}

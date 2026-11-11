@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sort"
 	"strings"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/pathguard"
@@ -36,7 +36,7 @@ type Status struct {
 // equivalent), which only reports changes made on this machine: for a
 // network share another machine writes to, use a cron schedule instead.
 type Watcher struct {
-	DB       *pgxpool.Pool
+	DB       database.DB
 	Jobs     *jobs.Runner
 	Alert    Alert
 	Debounce time.Duration // quiet time after the last change before scanning
@@ -54,7 +54,7 @@ type Watcher struct {
 	stamps  map[int64]string    // library -> last polled file stamp
 }
 
-func NewWatcher(db *pgxpool.Pool, runner *jobs.Runner, alert Alert) *Watcher {
+func NewWatcher(db database.DB, runner *jobs.Runner, alert Alert) *Watcher {
 	w := &Watcher{DB: db, Jobs: runner, Alert: alert, Debounce: 45 * time.Second, Retry: time.Minute, Sync: 30 * time.Second, Poll: 2 * time.Minute,
 		active: map[int64]*locWatch{}, failing: map[int64]time.Time{}, errs: map[int64]string{}, stamps: map[int64]string{}}
 	w.enqueue = func(ctx context.Context, id int64) error {

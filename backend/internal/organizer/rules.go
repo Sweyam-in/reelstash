@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reelstash/backend/internal/database"
 	"strconv"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/rename"
 )
@@ -47,7 +46,7 @@ var ErrRuleNotFound = errors.New("organizer rule not found")
 
 // ListRules returns every rule of a library in precedence order, with the entity's
 // current name, image and how many titles it has.
-func ListRules(ctx context.Context, db *pgxpool.Pool, libraryID int64) ([]Rule, error) {
+func ListRules(ctx context.Context, db database.DB, libraryID int64) ([]Rule, error) {
 	rows, err := db.Query(ctx, `
 		SELECT r.id,
 		       CASE WHEN r.studio_id IS NOT NULL THEN 'studio' ELSE 'performer' END,
@@ -82,7 +81,7 @@ func ListRules(ctx context.Context, db *pgxpool.Pool, libraryID int64) ([]Rule, 
 
 // CreateRule adds a rule for a studio or performer at the end of the
 // precedence list (lowest priority).
-func CreateRule(ctx context.Context, db *pgxpool.Pool, libraryID int64, kind string, entityID int64, folderName string) (int64, error) {
+func CreateRule(ctx context.Context, db database.DB, libraryID int64, kind string, entityID int64, folderName string) (int64, error) {
 	var studioID, performerID *int64
 	switch kind {
 	case KindStudio:
@@ -101,7 +100,7 @@ func CreateRule(ctx context.Context, db *pgxpool.Pool, libraryID int64, kind str
 	return id, err
 }
 
-func UpdateRule(ctx context.Context, db *pgxpool.Pool, libraryID, id int64, folderName string, enabled bool) error {
+func UpdateRule(ctx context.Context, db database.DB, libraryID, id int64, folderName string, enabled bool) error {
 	tag, err := db.Exec(ctx, `
 		UPDATE organizer_rule SET folder_name = NULLIF($2, ''), enabled = $3, updated_at = now() WHERE id = $1 AND library_id = $4
 	`, id, strings.TrimSpace(folderName), enabled, libraryID)
@@ -114,7 +113,7 @@ func UpdateRule(ctx context.Context, db *pgxpool.Pool, libraryID, id int64, fold
 	return nil
 }
 
-func DeleteRule(ctx context.Context, db *pgxpool.Pool, libraryID, id int64) error {
+func DeleteRule(ctx context.Context, db database.DB, libraryID, id int64) error {
 	tag, err := db.Exec(ctx, `DELETE FROM organizer_rule WHERE id = $1 AND library_id = $2`, id, libraryID)
 	if err != nil {
 		return err
@@ -127,7 +126,7 @@ func DeleteRule(ctx context.Context, db *pgxpool.Pool, libraryID, id int64) erro
 
 // ReorderRules sets precedence from ids (first = highest). Rules missing
 // from ids keep their relative order after the listed ones.
-func ReorderRules(ctx context.Context, db *pgxpool.Pool, libraryID int64, ids []int64) error {
+func ReorderRules(ctx context.Context, db database.DB, libraryID int64, ids []int64) error {
 	_, err := db.Exec(ctx, `
 		WITH wanted AS (SELECT id, ord FROM unnest($1::bigint[]) WITH ORDINALITY AS t(id, ord)),
 		ranked AS (
@@ -162,7 +161,7 @@ func DefaultSettings() Settings {
 	return Settings{CategorizedDir: "categorized", UncategorizedDir: "uncategorized", RenameFiles: true, WriteNFO: true, WriteImages: true}
 }
 
-func LoadSettings(ctx context.Context, db *pgxpool.Pool, libraryID int64) Settings {
+func LoadSettings(ctx context.Context, db database.DB, libraryID int64) Settings {
 	s := DefaultSettings()
 	var raw string
 	if err := db.QueryRow(ctx, `SELECT value FROM app_setting WHERE key = $1`, settingsKey(libraryID)).Scan(&raw); err == nil {
@@ -200,7 +199,7 @@ func (s *Settings) Normalize() error {
 	return nil
 }
 
-func SaveSettings(ctx context.Context, db *pgxpool.Pool, libraryID int64, s Settings) error {
+func SaveSettings(ctx context.Context, db database.DB, libraryID int64, s Settings) error {
 	raw, err := json.Marshal(s)
 	if err != nil {
 		return err

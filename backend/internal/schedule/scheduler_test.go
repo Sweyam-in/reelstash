@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reelstash/backend/internal/database"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 	"reelstash/backend/internal/testdb"
@@ -16,10 +15,10 @@ import (
 
 // quietRunner is a job runner whose handlers do nothing, so a queued job
 // finishes without touching any real storage.
-func quietRunner(t *testing.T, pool *pgxpool.Pool) *jobs.Runner {
+func quietRunner(t *testing.T, pool database.DB) *jobs.Runner {
 	t.Helper()
 	r := jobs.NewRunner(pool, 1)
-	noop := func(ctx context.Context, db *pgxpool.Pool, id int64, payload json.RawMessage) (any, error) {
+	noop := func(ctx context.Context, db database.DB, id int64, payload json.RawMessage) (any, error) {
 		return nil, nil
 	}
 	r.Register("SCAN", noop)
@@ -30,7 +29,7 @@ func quietRunner(t *testing.T, pool *pgxpool.Pool) *jobs.Runner {
 
 // addLocation adds a disk and a library covering all of it, both called name,
 // and returns the disk's id.
-func addLocation(t *testing.T, pool *pgxpool.Pool, name string) int64 {
+func addLocation(t *testing.T, pool database.DB, name string) int64 {
 	t.Helper()
 	var id int64
 	if err := pool.QueryRow(context.Background(),
@@ -47,7 +46,7 @@ func addLocation(t *testing.T, pool *pgxpool.Pool, name string) int64 {
 
 const libraryOf = `(SELECT library_id FROM library_root WHERE storage_location_id = $1)`
 
-func scanJobLocations(t *testing.T, pool *pgxpool.Pool) map[int64]int {
+func scanJobLocations(t *testing.T, pool database.DB) map[int64]int {
 	t.Helper()
 	rows, err := pool.Query(context.Background(), `SELECT (payload->>'storageLocationId')::bigint FROM background_job WHERE kind = 'SCAN'`)
 	if err != nil {

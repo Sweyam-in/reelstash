@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/lang"
 )
@@ -132,7 +131,7 @@ func FindSidecars(videoPath string) []Sidecar {
 
 // SaveSidecarCount records how many subtitle files lie next to a media file,
 // so titles can be filtered by whether they have subtitles.
-func SaveSidecarCount(ctx context.Context, db *pgxpool.Pool, mediaFileID int64, n int) error {
+func SaveSidecarCount(ctx context.Context, db database.DB, mediaFileID int64, n int) error {
 	_, err := db.Exec(ctx, `UPDATE media_file SET sidecar_subtitles = $2 WHERE id = $1 AND sidecar_subtitles IS DISTINCT FROM $2`, mediaFileID, n)
 	return err
 }

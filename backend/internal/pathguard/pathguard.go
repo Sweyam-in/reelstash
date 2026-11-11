@@ -11,10 +11,9 @@ package pathguard
 import (
 	"context"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"strings"
 	"sync/atomic"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // InUse is a file or folder a download client is using.
@@ -45,7 +44,7 @@ type Guard struct {
 
 // Load reads the locked folders and the paths in use now. A database error
 // yields a guard with only the paths in use.
-func Load(ctx context.Context, db *pgxpool.Pool) *Guard {
+func Load(ctx context.Context, db database.DB) *Guard {
 	g := &Guard{inUse: cleanInUse(currentInUse())}
 	if db == nil {
 		return g

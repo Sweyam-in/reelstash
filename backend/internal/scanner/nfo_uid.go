@@ -6,10 +6,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"regexp"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -112,7 +111,7 @@ func writeStubNFO(path, uid string) error {
 }
 
 // WriteItemNFO writes a full NFO for a title from what the database holds.
-func WriteItemNFO(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, nfoPath string) error {
+func WriteItemNFO(ctx context.Context, db database.DB, mediaItemID int64, nfoPath string) error {
 	var title, description, studio, releaseDate string
 	var year int
 	var season, episode *int
@@ -165,7 +164,7 @@ func WriteItemNFO(ctx context.Context, db *pgxpool.Pool, mediaItemID int64, nfoP
 // corrected; a missing one is created — in full when the title has metadata,
 // or as an identity-only stub when all it has is its filename (so it stays
 // eligible for auto-matching). It then records the uid as synced on the file.
-func SyncFileNFO(ctx context.Context, db *pgxpool.Pool, mediaFileID, mediaItemID int64, relPath, absPath string) error {
+func SyncFileNFO(ctx context.Context, db database.DB, mediaFileID, mediaItemID int64, relPath, absPath string) error {
 	var uid, source string
 	var linked bool
 	if err := db.QueryRow(ctx, `

@@ -6,10 +6,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"sort"
 	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/pathguard"
 	"reelstash/backend/internal/scanner"
@@ -62,7 +61,7 @@ type cleaner struct {
 // media_file row points into it, when it is hidden, or when it can't be read
 // completely. Symlinks are never followed or removed, and files sitting
 // directly in the storage root are never touched.
-func BuildCleanup(ctx context.Context, db *pgxpool.Pool, libraryID, storageLocationID int64) (CleanupPlan, string, error) {
+func BuildCleanup(ctx context.Context, db database.DB, libraryID, storageLocationID int64) (CleanupPlan, string, error) {
 	var mount string
 	if err := db.QueryRow(ctx, `SELECT mount_path FROM storage_location WHERE id = $1`, storageLocationID).Scan(&mount); err != nil {
 		return CleanupPlan{}, "", fmt.Errorf("load storage location: %w", err)
@@ -223,7 +222,7 @@ func (c *cleaner) add(it CleanupItem) {
 // RunCleanup recomputes the plan and deletes it. Removal is bottom-up and
 // per file, and it re-checks every file: a video that shows up meanwhile
 // (or any folder that stops being empty of videos) survives.
-func RunCleanup(ctx context.Context, db *pgxpool.Pool, libraryID, storageLocationID int64) (CleanupResult, error) {
+func RunCleanup(ctx context.Context, db database.DB, libraryID, storageLocationID int64) (CleanupResult, error) {
 	plan, mount, err := BuildCleanup(ctx, db, libraryID, storageLocationID)
 	if err != nil {
 		return CleanupResult{}, err

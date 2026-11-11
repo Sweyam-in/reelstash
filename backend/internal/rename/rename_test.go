@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reelstash/backend/internal/database"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/rename"
 	"reelstash/backend/internal/testdb"
@@ -85,7 +85,7 @@ func TestTemplateSettingOverridesFallback(t *testing.T) {
 }
 
 type fixture struct {
-	pool   *pgxpool.Pool
+	pool   database.DB
 	mount  string
 	fileID int64
 }

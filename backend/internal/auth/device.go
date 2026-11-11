@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"reelstash/backend/internal/database"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Device sessions are web_session rows an app holds as a bearer token. They
@@ -54,7 +54,7 @@ func clip(s string, n int) string {
 }
 
 // CreateDeviceSession opens a long-lived session for an app and returns its token.
-func CreateDeviceSession(ctx context.Context, db *pgxpool.Pool, userID int64, plugin string, d Device) (token string, expiresAt time.Time, err error) {
+func CreateDeviceSession(ctx context.Context, db database.DB, userID int64, plugin string, d Device) (token string, expiresAt time.Time, err error) {
 	d = d.Normalize()
 	token, err = randomToken()
 	if err != nil {
@@ -70,7 +70,7 @@ func CreateDeviceSession(ctx context.Context, db *pgxpool.Pool, userID int64, pl
 
 // TouchDeviceSession records use of a device session and slides its expiry,
 // writing at most once per deviceTouchEvery. Browser sessions are left alone.
-func TouchDeviceSession(ctx context.Context, db *pgxpool.Pool, token string) {
+func TouchDeviceSession(ctx context.Context, db database.DB, token string) {
 	_, _ = db.Exec(ctx, `
 		UPDATE web_session SET last_seen_at = now(), expires_at = now() + make_interval(secs => $2)
 		WHERE id = $1 AND device_name IS NOT NULL
@@ -91,7 +91,7 @@ type DeviceSession struct {
 
 // ListDeviceSessions returns a user's live app sessions, newest use first.
 // current is the token of the request, so the caller's own device is marked.
-func ListDeviceSessions(ctx context.Context, db *pgxpool.Pool, userID int64, current string) ([]DeviceSession, error) {
+func ListDeviceSessions(ctx context.Context, db database.DB, userID int64, current string) ([]DeviceSession, error) {
 	rows, err := db.Query(ctx, `
 		SELECT public_id, device_name, COALESCE(device_platform, 'unknown'), created_at, last_seen_at, expires_at, id = $2
 		FROM web_session
@@ -109,7 +109,7 @@ func ListDeviceSessions(ctx context.Context, db *pgxpool.Pool, userID int64, cur
 
 // RevokeDeviceSession signs one of the user's apps out. It reports whether a
 // session was removed.
-func RevokeDeviceSession(ctx context.Context, db *pgxpool.Pool, userID, publicID int64) (bool, error) {
+func RevokeDeviceSession(ctx context.Context, db database.DB, userID, publicID int64) (bool, error) {
 	tag, err := db.Exec(ctx, `DELETE FROM web_session WHERE user_id = $1 AND public_id = $2 AND device_name IS NOT NULL`, userID, publicID)
 	return tag.RowsAffected() > 0, err
 }
@@ -158,7 +158,7 @@ type Pairing struct {
 }
 
 // StartPairing registers a new pairing request for a device.
-func StartPairing(ctx context.Context, db *pgxpool.Pool, d Device) (Pairing, error) {
+func StartPairing(ctx context.Context, db database.DB, d Device) (Pairing, error) {
 	d = d.Normalize()
 	_, _ = db.Exec(ctx, `DELETE FROM device_pairing WHERE expires_at < now()`)
 	deviceCode, err := randomToken()
@@ -193,7 +193,7 @@ type PendingPairing struct {
 }
 
 // LookupPairing finds an unexpired, unapproved pairing by the code a person typed.
-func LookupPairing(ctx context.Context, db *pgxpool.Pool, userCode string) (PendingPairing, error) {
+func LookupPairing(ctx context.Context, db database.DB, userCode string) (PendingPairing, error) {
 	var p PendingPairing
 	err := db.QueryRow(ctx, `
 		SELECT device_name, device_platform FROM device_pairing
@@ -206,7 +206,7 @@ func LookupPairing(ctx context.Context, db *pgxpool.Pool, userCode string) (Pend
 }
 
 // ApprovePairing lets userID's account sign in the device that shows userCode.
-func ApprovePairing(ctx context.Context, db *pgxpool.Pool, userCode string, userID int64) (PendingPairing, error) {
+func ApprovePairing(ctx context.Context, db database.DB, userCode string, userID int64) (PendingPairing, error) {
 	var p PendingPairing
 	err := db.QueryRow(ctx, `
 		UPDATE device_pairing SET approved_user_id = $2
@@ -221,7 +221,7 @@ func ApprovePairing(ctx context.Context, db *pgxpool.Pool, userCode string, user
 
 // ClaimPairing is the app's poll. Once the pairing is approved it is consumed
 // and a device session for the approving user is returned.
-func ClaimPairing(ctx context.Context, db *pgxpool.Pool, deviceCode string) (token string, expiresAt time.Time, user User, err error) {
+func ClaimPairing(ctx context.Context, db database.DB, deviceCode string) (token string, expiresAt time.Time, user User, err error) {
 	var d Device
 	var userID *int64
 	err = db.QueryRow(ctx, `

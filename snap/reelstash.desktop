@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=ReelStash
+Comment=Local media library and organizer
+Exec=reelstash
+Type=Application
+Categories=AudioVideo;Video;
+Terminal=false

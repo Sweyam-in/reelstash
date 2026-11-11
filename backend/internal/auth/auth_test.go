@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"os"
+	"reelstash/backend/internal/database"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func TestRandomTokensAreUnique(t *testing.T) {
 	}
 }
 
-func testPool(t *testing.T) *pgxpool.Pool {
+func testPool(t *testing.T) database.DB {
 	t.Helper()
 	dsn := os.Getenv("REELSTASH_TEST_DATABASE_URL")
 	if dsn == "" {

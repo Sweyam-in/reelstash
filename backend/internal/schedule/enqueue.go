@@ -3,9 +3,9 @@ package schedule
 import (
 	"context"
 	"errors"
+	"reelstash/backend/internal/database"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"reelstash/backend/internal/jobs"
 )
@@ -21,7 +21,7 @@ var (
 // queue a second scan while one is pending or running for the same location
 // (a scan stuck on a stalled mount would otherwise pile up), and while the
 // organizer is moving files there.
-func EnqueueScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runner, storageLocationID int64) (int64, error) {
+func EnqueueScan(ctx context.Context, db database.DB, runner *jobs.Runner, storageLocationID int64) (int64, error) {
 	if err := checkScannable(ctx, db, storageLocationID); err != nil {
 		return 0, err
 	}
@@ -30,7 +30,7 @@ func EnqueueScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runner, sto
 
 // checkScannable refuses a scan while another scan (whole disk or library) is
 // queued or running on the storage location, or the organizer is moving files.
-func checkScannable(ctx context.Context, db *pgxpool.Pool, storageLocationID int64) error {
+func checkScannable(ctx context.Context, db database.DB, storageLocationID int64) error {
 	var existing int64
 	err := db.QueryRow(ctx, `
 		SELECT id FROM scan_job WHERE storage_location_id = $1 AND completed_at IS NULL
@@ -60,7 +60,7 @@ var ErrLibraryEmpty = errors.New("this library has no folders to scan")
 // EnqueueLibraryScan queues one SCAN job per disk the library has folders on,
 // each walking only the library's folders there. Nothing is queued unless
 // every one of those disks is free to scan.
-func EnqueueLibraryScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runner, libraryID int64) ([]int64, error) {
+func EnqueueLibraryScan(ctx context.Context, db database.DB, runner *jobs.Runner, libraryID int64) ([]int64, error) {
 	rows, err := db.Query(ctx, `SELECT DISTINCT storage_location_id FROM library_root WHERE library_id = $1 ORDER BY 1`, libraryID)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func EnqueueLibraryScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runn
 var ErrJobRunning = errors.New("this job is already running")
 
 // EnqueueDuplicateScan queues a DUPLICATE_SCAN unless one is already active.
-func EnqueueDuplicateScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runner) (int64, error) {
+func EnqueueDuplicateScan(ctx context.Context, db database.DB, runner *jobs.Runner) (int64, error) {
 	var existing int64
 	err := db.QueryRow(ctx, `SELECT id FROM background_job WHERE kind = 'DUPLICATE_SCAN' AND status IN ('PENDING', 'RUNNING') LIMIT 1`).Scan(&existing)
 	if err == nil {
@@ -105,7 +105,7 @@ func EnqueueDuplicateScan(ctx context.Context, db *pgxpool.Pool, runner *jobs.Ru
 
 // EnqueueHousekeeping queues a HOUSEKEEPING run unless one is already active.
 // No tasks means the default set.
-func EnqueueHousekeeping(ctx context.Context, db *pgxpool.Pool, runner *jobs.Runner, tasks []string, dryRun bool) (int64, error) {
+func EnqueueHousekeeping(ctx context.Context, db database.DB, runner *jobs.Runner, tasks []string, dryRun bool) (int64, error) {
 	var existing int64
 	err := db.QueryRow(ctx, `SELECT id FROM background_job WHERE kind = 'HOUSEKEEPING' AND status IN ('PENDING', 'RUNNING') LIMIT 1`).Scan(&existing)
 	if err == nil {
