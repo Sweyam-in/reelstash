@@ -148,6 +148,9 @@ test('file endpoints coerce the storage id to a number for JSON bodies', async (
   assert.equal(JSON.parse(last().opts.body).storageLocationId, 7);
   await api.saveFileNfo('7', 'x.mp4', '<movie/>');
   assert.deepEqual(JSON.parse(last().opts.body), { storageLocationId: 7, path: 'x.mp4', content: '<movie/>' });
+  await api.convertDVDs(['4', 9]);
+  assert.equal(last().url, '/api/admin/dvds/convert');
+  assert.deepEqual(JSON.parse(last().opts.body), { ids: [4, 9] });
 });
 
 test('file listing and deletion encode paths safely', async () => {

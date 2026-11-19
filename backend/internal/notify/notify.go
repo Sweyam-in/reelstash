@@ -106,6 +106,7 @@ var jobTitles = map[string]string{
 	"PREVIEW_SCAN":   "Hover previews",
 	"THUMBNAIL_FIX":  "Thumbnail repair",
 	"REMOVE_MISSING": "Remove missing titles",
+	"DVD_CONVERT":    "Convert DVD",
 	"LINK_RECOVERY":  "Link recovery",
 }
 

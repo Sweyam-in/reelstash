@@ -19,7 +19,7 @@ test('entertainment speaks in movies, shows, cast and genres', () => {
 test('private keeps the original video vocabulary', () => {
   const t = modeTerms('private');
   assert.equal(t.title, 'Video');
-  assert.equal(t.person, 'Performer');
+  assert.equal(t.person, 'Person');
   assert.equal(t.category, 'Category');
   assert.equal(t.series, 'Series');
 });

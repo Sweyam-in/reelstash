@@ -46,7 +46,7 @@ function JobDrawer({ jobId, jobs, onClose, onStop, onRetry }) {
     description={job ? <JobStatus status={job.status} /> : undefined}
     footer={job && (isActive(job)
       ? <Button variant="outline" onClick={() => onStop(job)} leadingIcon={<CircleStop size={14} />}>Stop</Button>
-      : job.kind in JOB_KINDS && <Button variant="outline" onClick={() => onRetry(job)} leadingIcon={<RotateCcw size={14} />}>{job.status === 'COMPLETED' ? 'Run again' : 'Retry'}</Button>)}>
+      : (job.kind in JOB_KINDS || job.kind === 'DVD_CONVERT') && <Button variant="outline" onClick={() => onRetry(job)} leadingIcon={<RotateCcw size={14} />}>{job.status === 'COMPLETED' ? 'Run again' : 'Retry'}</Button>)}>
     {!job ? (fetched.error ? <ErrorState compact title="Couldn't load the job" error={fetched.error} onRetry={fetched.reload} /> : <SkeletonRows rows={3} />) : <>
       {job.error && <DrawerSection title="Error"><pre className="console-pre">{job.error}</pre></DrawerSection>}
       {isActive(job) && <DrawerSection title="Progress">

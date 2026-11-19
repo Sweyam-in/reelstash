@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"reelstash/backend/internal/namer"
 )
 
 type mediaItem struct {
@@ -55,6 +57,8 @@ type mediaItem struct {
 	HasPreview bool `json:"hasPreview"`
 	// WatchLater is the current user's watch-later flag; only set by getMediaItem.
 	WatchLater bool `json:"watchLater"`
+	// LockedFields are the hand-edited fields kept through matches ("Keep my edits"); detail only.
+	LockedFields []string `json:"lockedFields,omitempty"`
 	// Reel detail, only set by loadMediaItemDetail: whether it shows under
 	// Reels, the admin's override (null: automatic) and what was detected.
 	Reel         *bool `json:"reel,omitempty"`
@@ -67,6 +71,8 @@ type mediaPerformer struct {
 	Name           string  `json:"name"`
 	ProfileImageID *int64  `json:"profileImageId,omitempty"`
 	Character      *string `json:"character,omitempty"`
+	// MediaCount is how many titles this person is in.
+	MediaCount int64 `json:"mediaCount"`
 }
 
 type mediaCrew struct {
@@ -163,7 +169,8 @@ func (a *API) attachPerformers(r *http.Request, items []mediaItem) error {
 	}
 
 	rows, err := a.DB.Query(r.Context(), `
-		SELECT mip.media_item_id, p.id, p.name, p.profile_image_id, mip.character
+		SELECT mip.media_item_id, p.id, p.name, p.profile_image_id, mip.character,
+		       (SELECT COUNT(*) FROM media_item_performer cc WHERE cc.performer_id = p.id)
 		FROM media_item_performer mip
 		JOIN performer p ON p.id = mip.performer_id
 		WHERE mip.media_item_id = ANY($1)
@@ -177,7 +184,7 @@ func (a *API) attachPerformers(r *http.Request, items []mediaItem) error {
 	for rows.Next() {
 		var mediaItemID int64
 		var person mediaPerformer
-		if err := rows.Scan(&mediaItemID, &person.ID, &person.Name, &person.ProfileImageID, &person.Character); err != nil {
+		if err := rows.Scan(&mediaItemID, &person.ID, &person.Name, &person.ProfileImageID, &person.Character, &person.MediaCount); err != nil {
 			return err
 		}
 		if item, ok := byID[mediaItemID]; ok {
@@ -287,8 +294,11 @@ func (a *API) listMediaItems(w http.ResponseWriter, r *http.Request) {
 	if v, err := strconv.Atoi(q.Get("minRating")); err == nil && v > 0 {
 		where = append(where, `mi.rating >= `+arg(int16(v)))
 	}
-	if q.Get("reels") == "true" {
+	switch q.Get("reels") {
+	case "true":
 		where = append(where, reelCond("mi"))
+	case "false":
+		where = append(where, landscapeCond("mi"))
 	}
 	if q.Get("hasArtwork") == "true" {
 		where = append(where, `(mi.poster_image_id IS NOT NULL OR mi.backdrop_image_id IS NOT NULL)`)
@@ -296,6 +306,7 @@ func (a *API) listMediaItems(w http.ResponseWriter, r *http.Request) {
 	if name := strings.TrimSpace(q.Get("studio")); name != "" {
 		where = append(where, `s.name = `+arg(name))
 	}
+	where = append(where, libraryFilterConds(r, arg)...)
 	if search := strings.TrimSpace(q.Get("q")); search != "" {
 		hay := `(mi.title || ' ' || COALESCE(s.name, '') || ' ' || COALESCE(se.name, '') || ' ' || COALESCE((
 			SELECT string_agg(pf.name || ' ' || COALESCE(pf.display_name, ''), ' ')
@@ -397,6 +408,9 @@ func (a *API) loadMediaItemDetail(r *http.Request, id int64) (mediaItem, error) 
 	if err := a.DB.QueryRow(r.Context(), `SELECT mi.reel_override, `+reelCond("mi")+`, `+reelDetected("mi")+` FROM media_item mi WHERE mi.id = $1`, id).
 		Scan(&m.ReelOverride, &reel, &detected); err == nil {
 		m.Reel, m.ReelDetected = &reel, &detected
+	}
+	if locked, err := namer.LockedFields(r.Context(), a.DB, id); err == nil {
+		m.LockedFields = locked
 	}
 	if crewRows, err := a.DB.Query(r.Context(), `
 		SELECT p.id, p.name, p.profile_image_id, c.job FROM media_item_crew c JOIN performer p ON p.id = c.performer_id

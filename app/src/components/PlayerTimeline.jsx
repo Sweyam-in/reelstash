@@ -7,7 +7,7 @@ const SPRITE_POLL_LIMIT = 40; // ~2 minutes of waiting for a sheet to be built
 
 // The scrub-preview sheet for a title. If it does not exist yet the server is asked to build it,
 // and this keeps checking until it is ready (or gives up quietly: the bar works without it).
-function useSprite(mediaId, enabled) {
+export function useSprite(mediaId, enabled) {
   const [sprite, setSprite] = useState(null);
   useEffect(() => {
     setSprite(null);
@@ -45,7 +45,7 @@ export default function PlayerTimeline({ videoRef, mediaId, markers, enabled = t
   const barRef = useRef(null);
   const dragging = useRef(false);
   const dragTarget = useRef(null);
-  const [clock, setClock] = useState({ current: 0, duration: 0 });
+  const [clock, setClock] = useState({ current: 0, duration: 0, buffered: 0 });
   const [previewTime, setPreviewTime] = useState(null);
   const [hover, setHover] = useState(null); // { fraction, x }
   const sprite = useSprite(mediaId, enabled);
@@ -53,8 +53,14 @@ export default function PlayerTimeline({ videoRef, mediaId, markers, enabled = t
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
-    const sync = () => setClock({ current: video.currentTime || 0, duration: Number.isFinite(video.duration) ? video.duration : 0 });
-    const events = ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked', 'emptied'];
+    const bufferedEnd = () => {
+      const ranges = video.buffered;
+      const now = video.currentTime || 0;
+      for (let i = 0; ranges && i < ranges.length; i += 1) if (ranges.start(i) <= now + 0.5 && ranges.end(i) >= now) return ranges.end(i);
+      return 0;
+    };
+    const sync = () => setClock({ current: video.currentTime || 0, duration: Number.isFinite(video.duration) ? video.duration : 0, buffered: bufferedEnd() });
+    const events = ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked', 'emptied', 'progress'];
     events.forEach(name => video.addEventListener(name, sync));
     sync();
     return () => events.forEach(name => video.removeEventListener(name, sync));
@@ -187,7 +193,7 @@ export default function PlayerTimeline({ videoRef, mediaId, markers, enabled = t
       onPointerLeave={() => { if (!dragging.current) setHover(null); }}
       onKeyDown={onKeyDown}
     >
-      <span className="rs-timeline-track"><span className="rs-timeline-played" style={{ width: `${played}%` }} /></span>
+      <span className="rs-timeline-track"><span className="rs-timeline-buffered" style={{ width: `${clock.duration ? Math.min(100, clock.buffered / clock.duration * 100) : 0}%` }} /><span className="rs-timeline-played" style={{ width: `${played}%` }} /></span>
       <span className="rs-timeline-knob" style={{ left: `${played}%` }} aria-hidden="true" />
       {clock.duration > 0 && markers?.map(marker => <button
         key={marker.id}

@@ -101,6 +101,7 @@ type scanWalk struct {
 	known     map[string]knownFile
 	knownErr  error
 	seen      map[string]bool
+	dvds      map[string]bool // VIDEO_TS folders that contain a playable title
 	nfos      map[string]bool
 	dirErrs   []string
 	unchanged []unchangedFile
@@ -122,8 +123,9 @@ func (s *Scanner) walkAndIndex(ctx, scanCtx context.Context, cancelScan func(), 
 		}
 	}()
 
-	var mu sync.Mutex // guards seen, nfos, dirErrs, unchanged
+	var mu sync.Mutex // guards seen, dvds, nfos, dirErrs, unchanged
 	seen := make(map[string]bool)
+	dvds := make(map[string]bool)
 	nfos := make(map[string]bool)
 	var dirErrs []string
 	var unchanged []unchangedFile
@@ -201,6 +203,16 @@ func (s *Scanner) walkAndIndex(ctx, scanCtx context.Context, cancelScan func(), 
 				return
 			}
 			ext := strings.ToLower(filepath.Ext(name))
+			// A playable VOB marks its VIDEO_TS folder. The scan records the
+			// disc and leaves conversion to an admin. VOB files are not library videos.
+			if ext == ".vob" {
+				if disc := dvdDiscRel(relPath); disc != "" {
+					mu.Lock()
+					dvds[disc] = true
+					mu.Unlock()
+				}
+				return
+			}
 			if ext == ".nfo" {
 				mu.Lock()
 				nfos[relPath] = true
@@ -281,7 +293,7 @@ waitLoop:
 		log.Printf("scanner: abandoning stalled scan of storage location %d: %v", storageLocationID, walkErr)
 	}
 	<-knownReady
-	return scanWalk{known: known, knownErr: knownErr, seen: seen, nfos: nfos, dirErrs: dirErrs, unchanged: unchanged, walkErr: walkErr}
+	return scanWalk{known: known, knownErr: knownErr, seen: seen, dvds: dvds, nfos: nfos, dirErrs: dirErrs, unchanged: unchanged, walkErr: walkErr}
 }
 
 // finishScan records missing files, writes the scan_job row, and queues the
@@ -356,6 +368,10 @@ func (s *Scanner) finishScan(ctx context.Context, summary ScanSummary, scanJobID
 	}
 	if missingErr != nil {
 		return summary, false, missingErr
+	}
+	// Record DVD folders this walk saw. Nothing is converted here.
+	if err := s.syncDVDs(ctx, storageLocationID, mountPath, scope.roots, walk.dvds, dirErrs, excluder); err != nil {
+		return summary, false, err
 	}
 
 	finalSnap := live.snapshot()

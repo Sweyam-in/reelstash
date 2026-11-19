@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Check, ListVideo, Play, RotateCcw, Settings2, Shuffle, Star } from 'lucide-react';
-import { useToast } from '@spatika/react';
+import { useToast } from '../ui';
 import { artworkUrl, getMediaItems, getSeriesItem, performerImageUrl, seriesBackdropUrl, studioImageUrl } from '../api';
 import { monogram } from '../components/Monogram';
 import SeriesCover from '../components/SeriesCover';

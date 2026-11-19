@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { Button } from '@spatika/react';
+import { Button } from '../ui';
 import { getCategories, getTags } from '../api';
 import { MAX_CONDITIONS, OP_LABELS, SMART_FIELDS, SMART_SORTS, newCondition } from '../smartRules';
 

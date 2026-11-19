@@ -399,7 +399,7 @@ func (w *Watcher) loop(ctx context.Context, lw *locWatch) {
 			err := w.enqueue(ctx, lw.id)
 			switch {
 			case err == nil:
-			case errors.Is(err, ErrScanRunning), errors.Is(err, ErrOrganizing):
+			case errors.Is(err, ErrScanRunning), errors.Is(err, ErrOrganizing), errors.Is(err, ErrConverting):
 				arm(w.Retry) // changes during a scan are picked up by the next one
 			default:
 				log.Printf("watch: library %d: queue scan: %v", lw.id, err)

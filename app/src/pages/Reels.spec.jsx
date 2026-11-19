@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('../api', () => ({
-  getMediaItems: vi.fn(), updateMediaItem: vi.fn(), updatePlayback: vi.fn(() => Promise.resolve()),
+  getMediaItems: vi.fn(), updateMediaItem: vi.fn(), updatePlayback: vi.fn(() => Promise.resolve()), addWatchLater: vi.fn(), removeWatchLater: vi.fn(), getCollections: vi.fn(), addCollectionItem: vi.fn(), createCollection: vi.fn(),
   artworkUrl: id => `/art/${id}.jpg`,
 }));
 // Playback itself is the shared adaptive-source hook's job, tested on its own.
@@ -27,7 +27,7 @@ beforeEach(() => {
 describe('Reels page', () => {
   it('asks for the library’s reels in a stable shuffle and plays the first one', async () => {
     const { container } = renderApp(<Reels />);
-    expect(await screen.findByText('Beach sunset')).toBeInTheDocument();
+    expect((await screen.findAllByText('Beach sunset')).length).toBeGreaterThan(0);
     expect(screen.getByText('Phone · Asha')).toBeInTheDocument();
     const params = getMediaItems.mock.calls[0][0];
     expect(params).toMatchObject({ reels: 'true', sort: 'shuffle', offset: 0 });
@@ -39,18 +39,29 @@ describe('Reels page', () => {
 
   it('switches to newest first', async () => {
     renderApp(<Reels />);
-    await screen.findByText('Beach sunset');
-    await userEvent.click(screen.getByRole('button', { name: /Newest/ }));
+    await screen.findAllByText('Beach sunset');
+    await userEvent.click(screen.getAllByRole('button', { name: /Newest/ })[0]);
     await waitFor(() => expect(getMediaItems).toHaveBeenLastCalledWith(expect.objectContaining({ reels: 'true', sort: '' })));
   });
 
   it('favorites a reel', async () => {
     updateMediaItem.mockResolvedValue({ id: 1, favorite: true });
     renderApp(<Reels />);
-    await screen.findByText('Beach sunset');
+    await screen.findAllByText('Beach sunset');
     await userEvent.click(screen.getAllByRole('button', { name: 'Add to favorites' })[0]);
     expect(updateMediaItem).toHaveBeenCalledWith(1, { favorite: true });
-    expect(await screen.findByRole('button', { name: 'Remove from favorites' })).toHaveAttribute('aria-pressed', 'true');
+    expect((await screen.findAllByRole('button', { name: 'Remove from favorites' }))[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('offers the not-watched and favorites orders, and shows what is on screen', async () => {
+    renderApp(<Reels />);
+    await screen.findAllByText('Beach sunset');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Not watched' })[0]);
+    await waitFor(() => expect(getMediaItems).toHaveBeenLastCalledWith(expect.objectContaining({ reels: 'true', watched: 'unwatched' })));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Favorites' })[0]);
+    await waitFor(() => expect(getMediaItems).toHaveBeenLastCalledWith(expect.objectContaining({ reels: 'true', favorite: 'true' })));
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open full title page →' })).toHaveAttribute('href', '/library/1');
   });
 
   it('explains an empty library', async () => {

@@ -204,7 +204,7 @@ func (a *API) enqueueScan(ctx context.Context, storageLocationID int64) (jobID i
 	}
 	jobID, err := schedule.EnqueueScan(ctx, a.DB, a.Jobs, storageLocationID)
 	switch {
-	case errors.Is(err, schedule.ErrScanRunning), errors.Is(err, schedule.ErrOrganizing):
+	case errors.Is(err, schedule.ErrScanRunning), errors.Is(err, schedule.ErrOrganizing), errors.Is(err, schedule.ErrConverting):
 		return 0, http.StatusConflict, err.Error()
 	case err != nil:
 		return 0, http.StatusInternalServerError, "failed to enqueue scan"

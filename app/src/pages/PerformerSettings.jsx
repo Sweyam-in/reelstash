@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SettingsDialog from '../components/SettingsDialog';
+import { monogram } from '../components/Monogram';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
   FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
-} from '@spatika/react';
-import { Check, Combine, ImageUp, RefreshCw, Search, Trash2, X } from 'lucide-react';
+} from '../ui';
+import { Check, Combine, ImageUp, RefreshCw, Search, Trash2, X, FileText, Film, Image as ImageIcon, Sparkles } from 'lucide-react';
 import {
   artworkUrl, choosePerformerPhoto, getPerformerFieldSources, setPerformerFieldSources, createPerformer, deletePerformerPhoto, fetchPerformerPhotos, getPerformerPhotos, getProviders, performerPhotoUrl, dismissPerformerDuplicate, getMediaItems, getPerformer, getPerformerDuplicates, getPerformerMedia, getPerformers,
   deletePerformer, linkPerformerMedia, mergePerformer, unlinkPerformerMedia, unmatchPerformerProvider, performerImageUrl, updatePerformer, uploadPerformerImage,
@@ -87,12 +89,14 @@ export function DuplicateList({ pairs, currentId, onDone, onDismiss, empty }) {
   </div>;
 }
 
-function DetailsTab({ performer, onSaved, onDeleted }) {
+function DetailsTab({ performer, onSaved, onDeleted, onState }) {
   const { toast } = useToast();
   const [name, setName] = useState(performer.name || '');
   const [displayName, setDisplayName] = useState(performer.displayName || '');
   const [notes, setNotes] = useState(performer.notes || '');
   const [busy, setBusy] = useState(false);
+  useEffect(() => () => onState?.({ dirty: false, busy: false }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onState?.({ dirty: name !== (performer.name || '') || displayName !== (performer.displayName || '') || notes !== (performer.notes || ''), busy }); }, [name, displayName, notes, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function save(event) {
@@ -121,12 +125,12 @@ function DetailsTab({ performer, onSaved, onDeleted }) {
     }
   }
 
-  return <form className="rs-pm-form" onSubmit={save}>
+  return <form id="rs-pm-details" className="rs-pm-form" onSubmit={save}>
     <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
     <FormField label="Display name"><Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Optional" /></FormField>
     <FormField label="Description"><textarea className="rs-pm-textarea" rows={6} value={notes} placeholder="Shown on the performer page. Leave empty to show the bio from your metadata providers, if there is one." onChange={e => setNotes(e.target.value)} /></FormField>
     {!!performer.aliases?.length && <div><p className="rs-eyebrow">Also known as</p><p className="rs-pm-chips">{performer.aliases.map(alias => <span key={alias}>{alias}</span>)}</p></div>}
-    <div><Button type="submit" disabled={busy || !name.trim()}>Save changes</Button></div>
+    <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
     <div className="rs-pm-danger">
       <p className="rs-eyebrow">Delete performer</p>
       <p className="rs-pm-muted">The performer is removed from all of their titles. Video files and NFO files are not touched.</p>
@@ -445,33 +449,32 @@ export default function PerformerSettings({ performerId, open, onOpenChange, onC
     else load().catch(() => {});
   }
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent size="xl" className="rs-pm">
-      <DialogHeader><DialogTitle>{performer ? `${performer.name} · settings` : 'Performer settings'}</DialogTitle></DialogHeader>
-      <DialogBody>
-        {!performer && <p className="rs-pm-muted">Loading…</p>}
-        {performer && <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="photo">Photos</TabsTrigger>
-            <TabsTrigger value="titles">Titles</TabsTrigger>
-            <TabsTrigger value="match">Metadata Providers</TabsTrigger>
-            <TabsTrigger value="merge">Duplicates &amp; merge</TabsTrigger>
-          </TabsList>
-          <div className="rs-pm-panel">
-            <TabsContent value="match">
-              <PerformerMatch performer={performer} onUpdated={changed} unmatchRemote={unmatchPerformerProvider} />
-              {(performer.links || []).length > 1 && <FieldSources key={`${performer.id}:${performer.links.map(l => l.provider).join()}`} performer={performer} onChanged={changed} />}
-            </TabsContent>
-            <TabsContent value="photo"><PhotoTab performer={performer} onChanged={changed} /></TabsContent>
-            <TabsContent value="details"><DetailsTab key={performer.id} performer={performer} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
-            <TabsContent value="titles"><TitlesTab performer={performer} onChanged={changed} /></TabsContent>
-            <TabsContent value="merge"><MergeTab performer={performer} onMerged={merged} /></TabsContent>
-          </div>
-        </Tabs>}
-      </DialogBody>
-    </DialogContent>
-  </Dialog>;
+  const [detailsState, setDetailsState] = useState({ dirty: false, busy: false });
+  useEffect(() => { if (!open) setDetailsState({ dirty: false, busy: false }); }, [open]);
+  const tabs = [
+    { value: 'details', label: 'Details', icon: FileText },
+    { value: 'photo', label: 'Photos', icon: ImageIcon },
+    { value: 'titles', label: 'Titles', icon: Film },
+    { value: 'match', label: 'Metadata providers', icon: Sparkles },
+    { value: 'merge', label: 'Duplicates & merge', icon: Combine },
+  ];
+  return <SettingsDialog open={open} onOpenChange={onOpenChange} className="" loading={!performer}
+    lead={performer ? (performer.profileImageId ? <img src={performerImageUrl(performer.id, performer.profileImageId)} alt="" /> : <span className="rs-mono" style={monogram(performer.name).style}>{monogram(performer.name).initials}</span>) : null}
+    kicker="Person settings" title={performer ? (performer.name) : 'Loading…'}
+    tabs={tabs} tab={tab} onTab={setTab}
+    dirty={detailsState.dirty} onSave={() => document.getElementById('rs-pm-details')?.requestSubmit()} canSave={detailsState.dirty} saving={detailsState.busy} showSave={tab === 'details'}>
+    {performer && <>
+        <TabsContent value="match">
+          <PerformerMatch performer={performer} onUpdated={changed} unmatchRemote={unmatchPerformerProvider} />
+          {(performer.links || []).length > 1 && <FieldSources key={`${performer.id}:${performer.links.map(l => l.provider).join()}`} performer={performer} onChanged={changed} />}
+        </TabsContent>
+        <TabsContent value="photo"><PhotoTab performer={performer} onChanged={changed} /></TabsContent>
+        <TabsContent value="details"><DetailsTab onState={setDetailsState} key={performer.id} performer={performer} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
+        <TabsContent value="titles"><TitlesTab performer={performer} onChanged={changed} /></TabsContent>
+        <TabsContent value="merge"><MergeTab performer={performer} onMerged={merged} /></TabsContent>
+
+    </>}
+  </SettingsDialog>;
 }
 
 /** Create a performer by hand, with an optional description. */

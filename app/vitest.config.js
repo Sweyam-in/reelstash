@@ -11,7 +11,5 @@ export default defineConfig({
     setupFiles: ['src/testing/setup.js'],
     css: false,
     restoreMocks: true,
-    // Design-system packages ship ESM with CSS imports; inline them so vite handles both.
-    server: { deps: { inline: [/@spatika/] } },
   },
 });

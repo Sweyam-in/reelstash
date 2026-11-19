@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, Rows3, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, Building2, Check, Dices, Film, Layers3, Sparkles, Users, Globe, Heart, ListPlus, ListVideo, Maximize2, Play, Plus, RefreshCw, Search, SearchX, Settings2, Shuffle, SkipBack, SkipForward, SlidersHorizontal, Star, X, Zap } from 'lucide-react';
+import { LayoutGrid, Rows3, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, BookmarkPlus, Building2, Check, Dices, Ellipsis, Film, Layers3, Sparkles, Users, Globe, Heart, Bell, BellRing, ListPlus, ListVideo, Maximize2, Play, Plus, RefreshCw, Search, SearchX, Settings2, Shuffle, SkipBack, SkipForward, SlidersHorizontal, Star, X, Zap } from 'lucide-react';
 import { monogram } from '../components/Monogram';
 import { splitBio } from '../bioFacts';
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Tabs, TabsList, TabsTrigger, useToast } from '@spatika/react';
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Tabs, TabsList, TabsTrigger, useToast } from '../ui';
 import {
-  addCollectionItem, addWatchLater, artworkUrl, createCollection, getMarkers, previewUrl, removeWatchLater, getCategories, getCollections, getContinueWatching, getNextInSeries, getNextUp, subtitleUrl, getHomeRecommendations, startWatchSession, updateWatchSession, getMediaItem, getRelatedMedia, getMediaItems,
-  createSeries, getPerformer, getPerformers, getSeries, getSeriesItem, getStudio, getStudios, performerImageUrl, setPerformerFavorite, studioImageUrl, updateMediaItem, updatePlayback, getRelatedPerformers } from '../api';
+  addCollectionItem, addWatchLater, artworkUrl, createCollection, createMarker, getMarkers, previewUrl, removeWatchLater, getCategories, getCollections, getContinueWatching, getNextInSeries, getNextUp, subtitleUrl, getHomeRecommendations, getHomeSeries, getHomeSummary, startWatchSession, updateWatchSession, getMediaItem, getRelatedMedia, getMediaItems,
+  createSeries, getPerformer, getPerformers, getSeries, getSeriesItem, getStudio, getStudios, performerImageUrl, setPerformerFavorite, setPerformerNotify, studioImageUrl, updateMediaItem, updatePlayback, getRelatedPerformers, getWatchActivity } from '../api';
 import PerformerSettings, { NewPerformerDialog } from './PerformerSettings';
 import { useLibrary } from '../libraryContext';
 import MediaSettings from './MediaSettings';
@@ -19,7 +19,7 @@ import { useAdaptiveSource, TRANSCODE_QUALITIES } from './hooks/useAdaptiveSourc
 import { useMediaTracks } from './hooks/useMediaTracks';
 import { nextUpKicker, resumeKicker } from '../trackPrefs';
 import UpNext from '../components/UpNext';
-import { FilterSelect } from '../components/FilterControls';
+import { FilterChip, FilterPanel, FilterSelect } from '../components/FilterControls';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { useColumnCount, useInfiniteList, VirtualWindow } from '../virtual';
@@ -27,10 +27,12 @@ import { cardMetrics, useCardStyle } from '../cardStyle';
 import PlayerControls from '../components/PlayerControls';
 import Markers from '../components/Markers';
 import QueuePanel from '../components/QueuePanel';
+import AddToPlaylist from '../components/AddToPlaylist';
 import { isFullscreen as isPlayerFullscreen, onFullscreenChange, toggleFullscreen } from '../fullscreen';
-import { enqueue, nextInQueue, previousInQueue, startQueue, syncPlaying, useQueue } from '../queue';
+import { enqueue, nextInQueue, previousInQueue, setAutoplay, startQueue, syncPlaying, useQueue } from '../queue';
 import { fetchRandomTitles, playAll } from '../queueActions';
 import { adminHref } from '../appLinks';
+import { formatClock } from '../playerUtils';
 
 function useMediaList(params) {
   const [items, setItems] = useState([]);
@@ -149,7 +151,7 @@ export function backLabel(from) {
   return detail ? { performers: 'Performer', studios: 'Studio', series: 'Series', categories: 'Category' }[detail[1]] : 'Back';
 }
 
-function MediaCard({ item, exclude = [], kicker, showPlayCount = false, mostPlayed = false }) {
+function MediaCard({ item, exclude = [], kicker, showPlayCount = false, mostPlayed = false, wide = false }) {
   const location = useLocation();
   const [previewing, setPreviewing] = useState(false);
   const hoverTimer = useRef();
@@ -162,9 +164,9 @@ function MediaCard({ item, exclude = [], kicker, showPlayCount = false, mostPlay
     ? Math.min(100, Math.max(4, (item.positionSeconds / item.durationSeconds) * 100)) : null;
   const runtime = progress != null ? `${formatRuntime(item.durationSeconds - item.positionSeconds) || '1m'} left` : formatRuntime(item.durationSeconds);
   const fresh = isNew(item) && !item.watched && !item.positionSeconds;
-  return <Link className={`rs-media-card ${toneClass(item.id)}`} to={`/library/${item.id}`} state={{ from: `${location.pathname}${location.search}` }} aria-label={`${displayTitle(item)}${item.studioName ? `, ${item.studioName}` : ''}`} onMouseEnter={startPreview} onMouseLeave={stopPreview} onFocus={startPreview} onBlur={stopPreview}>
+  return <Link className={`rs-media-card${wide ? ' is-wide' : ''}`} to={`/library/${item.id}`} state={{ from: `${location.pathname}${location.search}` }} aria-label={`${displayTitle(item)}${item.studioName ? `, ${item.studioName}` : ''}`} onMouseEnter={startPreview} onMouseLeave={stopPreview} onFocus={startPreview} onBlur={stopPreview}>
     <div className="rs-media-card-art">
-      <Artwork item={item} />
+      <Artwork item={item} preferBackdrop={wide} />
       {previewing && <CardPreview item={item} />}
       <span className="rs-card-play" aria-hidden="true"><Play size={18} fill="currentColor" /></span>
       {(fresh || item.watched) && <span className="rs-card-badges">{fresh && <span className="rs-badge rs-badge-new">New</span>}{item.watched && progress == null && <span className="rs-badge rs-badge-watched"><Check size={11} strokeWidth={3} /> Watched</span>}</span>}
@@ -260,32 +262,60 @@ function HeroCarousel({ items, eyebrow = 'FROM YOUR COLLECTION', exclude = [], b
     if (Math.abs(delta) > 45) goTo(active + (delta < 0 ? 1 : -1));
   }
 
+  const slideMeta = item => {
+    const year = (item.releaseDate || '').slice(0, 4) || (item.productionYear ? String(item.productionYear) : '');
+    return [year, formatRuntime(item.durationSeconds), item.rating > 0 ? `★ ${(item.rating / 2).toFixed(1)}` : '', item.studioName].filter(Boolean);
+  };
+  const people = item => (item.performers || []).filter(person => !skip.has(String(person).toLowerCase())).slice(0, 3);
   return <section className={`rs-feature rs-hero${bleed ? ' rs-hero-bleed' : ''}${paused ? ' is-paused' : ''}`} aria-roledescription="carousel" aria-label="Featured titles" tabIndex={count > 1 ? 0 : undefined}
     style={{ '--hero-interval': `${HERO_AUTOPLAY_MS}ms` }}
     onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
     onKeyDown={onKeyDown} onTouchStart={event => { touchStart.current = event.touches[0].clientX; }} onTouchEnd={onTouchEnd}>
-    {items.map((item, index) => <div key={item.id} className={`rs-hero-slide ${toneClass(item.id)}${index === active ? ' is-active' : ''}`} aria-hidden={index !== active} aria-roledescription="slide" aria-label={`${index + 1} of ${count}`}>
-      <Artwork item={item} className="rs-feature-art" preferBackdrop />
-      <div className="rs-feature-shade" />
-      <div className="rs-feature-copy">
-        <p className="rs-eyebrow"><span className="rs-live-dot" /> {eyebrow}</p>
-        <h2 title={item.title}>{displayTitle(item)}</h2>
-        <p className="rs-feature-meta">{metaFor(item)}</p>
-        <div className="rs-feature-actions">
-          <Link className="rs-button rs-button-primary" to={`/library/${item.id}`} state={{ autoplay: true }} tabIndex={index === active ? undefined : -1}><Play size={16} fill="currentColor" /> Play</Link>
-          <Link className="rs-button rs-button-outline" to={`/library/${item.id}`} tabIndex={index === active ? undefined : -1}>Details <ArrowRight size={16} /></Link>
+    {items.map((item, index) => {
+      const resumable = item.positionSeconds > 0 && item.durationSeconds > item.positionSeconds;
+      const cast = people(item);
+      const tabIndex = index === active ? undefined : -1;
+      return <div key={item.id} className={`rs-hero-slide${index === active ? ' is-active' : ''}`} aria-hidden={index !== active} aria-roledescription="slide" aria-label={`${index + 1} of ${count}`}>
+        <Artwork item={item} className="rs-feature-art" preferBackdrop />
+        <div className="rs-feature-shade" />
+        <div className="rs-feature-copy">
+          <p className="rs-hero-kicker"><span className="rs-live-dot" /> {eyebrow}</p>
+          <h2 title={item.title}>{displayTitle(item)}</h2>
+          <p className="rs-hero-meta">{slideMeta(item).map((part, i) => <span key={i}>{part}</span>)}</p>
+          {item.description ? <p className="rs-hero-desc">{item.description}</p> : <p className="rs-hero-desc is-faint">{metaFor(item)}</p>}
+          {!!cast.length && <p className="rs-hero-people">With {cast.join(', ')}</p>}
+          <div className="rs-feature-actions">
+            <Link className="rs-button rs-button-primary rs-button-lg" to={`/library/${item.id}`} state={{ autoplay: true }} tabIndex={tabIndex}><Play size={18} fill="currentColor" /> {resumable ? `Resume · ${formatRuntime(item.durationSeconds - item.positionSeconds) || '1m'} left` : 'Play'}</Link>
+            <Link className="rs-button rs-button-glass rs-button-lg" to={`/library/${item.id}`} tabIndex={tabIndex}>Details <ArrowRight size={17} /></Link>
+            <HeroSaveButton item={item} tabIndex={tabIndex} />
+          </div>
+          {resumable && <span className="rs-hero-progress" aria-hidden="true"><span style={{ width: `${Math.min(100, item.positionSeconds / item.durationSeconds * 100)}%` }} /></span>}
         </div>
-      </div>
-    </div>)}
-    {count > 1 && <>
+      </div>;
+    })}
+    {count > 1 && <div className="rs-hero-rail">
+      <div className="rs-hero-thumbs">{items.map((item, index) => <button key={item.id} type="button" className={`rs-hero-thumb${index === active ? ' is-active' : ''}`} aria-label={`Show ${displayTitle(item)}`} aria-current={index === active} onClick={() => goTo(index)}><Artwork item={item} preferBackdrop /><span className="rs-hero-thumb-timer" /></button>)}</div>
       <div className="rs-hero-nav">
-        <span className="rs-hero-count">{String(active + 1).padStart(2, '0')} <i>/</i> {String(count).padStart(2, '0')}</span>
+        <span className="rs-hero-count">{String(active + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}</span>
         <button type="button" aria-label="Previous title" onClick={() => goTo(active - 1)}><ArrowLeft size={17} /></button>
         <button type="button" aria-label="Next title" onClick={() => goTo(active + 1)}><ArrowRight size={17} /></button>
       </div>
-      <div className="rs-hero-dots">{items.map((item, index) => <button key={`${item.id}:${index === active ? active : 'x'}`} type="button" className={index === active ? 'is-active' : ''} aria-label={`Show ${displayTitle(item)}`} aria-current={index === active} onClick={() => goTo(index)}><span /></button>)}</div>
-    </>}
+    </div>}
   </section>;
+}
+
+// Watch later from the featured slideshow, without leaving Home.
+function HeroSaveButton({ item, tabIndex }) {
+  const { toast } = useToast();
+  const [saved, setSaved] = useState(!!item.watchLater);
+  async function toggle() {
+    try {
+      if (saved) await removeWatchLater(item.id); else await addWatchLater(item.id);
+      setSaved(!saved);
+      toast({ title: saved ? 'Removed from Watch later' : 'Saved to Watch later', tone: 'success' });
+    } catch (err) { toast({ title: 'Could not update Watch later', description: err.message, tone: 'danger' }); }
+  }
+  return <button type="button" className="rs-button rs-button-glass rs-button-lg rs-button-icon" aria-pressed={saved} aria-label={saved ? 'Remove from Watch later' : 'Add to Watch later'} title={saved ? 'In Watch later' : 'Watch later'} tabIndex={tabIndex} onClick={toggle}>{saved ? <BookmarkCheck size={19} /> : <BookmarkPlus size={19} />}</button>;
 }
 
 function Status({ loading, error, empty, retry, title, message, href, action, icon: Icon = Film }) {
@@ -324,9 +354,11 @@ function ExploreTile({ to, tone, icon: Icon, label, count, unit, units, peek, ch
   </Link>;
 }
 
-// "Part of <series>" on the video page: the series in order, with the current title marked and the next one called out.
-function SeriesShelf({ item, nextEpisode }) {
+// "Part of <series>" on the video page: the series in order beside the player, with the current
+// title marked and the next one called out.
+function SeriesSideList({ item, nextEpisode }) {
   const { terms, mode } = useLibrary();
+  const queue = useQueue();
   const [parts, setParts] = useState([]);
   useEffect(() => {
     let live = true;
@@ -338,21 +370,97 @@ function SeriesShelf({ item, nextEpisode }) {
   const position = parts.findIndex(part => String(part.id) === String(item.id));
   const nextId = nextEpisode ? String(nextEpisode.id) : position >= 0 && parts[position + 1] ? String(parts[position + 1].id) : null;
   const episodes = item.kind === 'episode';
-  const start = Math.max(0, position - 2);
-  const visible = position > 3 ? parts.slice(start) : parts;
-  const kickerFor = part => {
-    const index = parts.indexOf(part) + 1;
-    const label = `${episodes ? 'Episode' : 'Part'} ${index}`;
-    if (String(part.id) === String(item.id)) return `Now playing · ${label}`;
-    if (String(part.id) === nextId) return `Up next · ${label}`;
-    return label;
-  };
+  const watched = parts.filter(part => part.watched).length;
   const route = `/${episodes && mode === 'entertainment' ? 'shows' : 'series'}/${item.seriesId}`;
-  // The current title links to this very page, so bring the player back into view instead of doing nothing.
-  const backToPlayer = event => { event.preventDefault(); event.stopPropagation(); (document.querySelector('.spk-app-content') || window).scrollTo({ top: 0, behavior: 'smooth' }); };
-  return <section className="rs-series-shelf">
-    <Shelf eyebrow={position >= 0 ? `${episodes ? 'Episode' : 'Part'} ${position + 1} of ${parts.length}` : plural(parts.length, 'part')} title={`More in ${item.seriesName || (episodes ? terms.show : terms.series)}`} href={route} hrefLabel="Open series" limit={200} items={visible}
-      renderItem={part => <div key={part.id} className={`rs-series-part${String(part.id) === String(item.id) ? ' is-current' : ''}${String(part.id) === nextId ? ' is-next' : ''}`} onClickCapture={String(part.id) === String(item.id) ? backToPlayer : undefined}><MediaCard item={part} kicker={kickerFor(part)} /></div>} />
+  const backToPlayer = event => { event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  return <aside className="rs-watch-side rs-series-side" aria-label={`In ${item.seriesName || terms.series}`}>
+    <div className="rs-side-head">
+      <Link to={route} className="rs-side-title">{item.seriesName || (episodes ? terms.show : terms.series)}</Link>
+      <span className="rs-side-meta">{watched} of {parts.length} watched</span>
+    </div>
+    <label className="rs-side-toggle"><span>Autoplay next {episodes ? 'episode' : 'part'}</span><input type="checkbox" checked={queue.autoplay} onChange={event => setAutoplay(event.target.checked)} /></label>
+    <ol className="rs-side-list">
+      {parts.map((part, index) => {
+        const current = String(part.id) === String(item.id);
+        const next = String(part.id) === nextId;
+        const progress = part.positionSeconds && part.durationSeconds ? Math.min(100, part.positionSeconds / part.durationSeconds * 100) : part.watched ? 100 : 0;
+        const state = current ? 'Now playing' : next ? 'Up next' : part.watched ? 'Watched' : 'Not watched';
+        return <li key={part.id}>
+          <Link to={`/library/${part.id}`} state={{ from: route }} className={`rs-side-item${current ? ' is-current' : ''}${next ? ' is-next' : ''}`} aria-current={current ? 'true' : undefined} onClick={current ? backToPlayer : undefined}>
+            <span className="rs-side-art"><Artwork item={part} preferBackdrop /><span className="rs-side-progress" style={{ width: `${progress}%` }} /></span>
+            <span className="rs-side-copy">
+              <small>{episodes ? 'Episode' : 'Part'} {index + 1}{part.durationSeconds ? ` · ${formatRuntime(part.durationSeconds)}` : ''}</small>
+              <strong>{displayTitle(part)}</strong>
+              <em>{state}</em>
+            </span>
+          </Link>
+        </li>;
+      })}
+    </ol>
+  </aside>;
+}
+
+// Beside the player when the title isn't part of a series: a short list of similar titles.
+function SimilarSideList({ items }) {
+  if (!items.length) return null;
+  return <aside className="rs-watch-side" aria-label="Watch next">
+    <div className="rs-side-head"><span className="rs-side-title">Watch next</span><span className="rs-side-meta">Similar titles</span></div>
+    <ol className="rs-side-list">
+      {items.slice(0, 6).map(part => <li key={part.id}><Link to={`/library/${part.id}`} className="rs-side-item">
+        <span className="rs-side-art"><Artwork item={part} preferBackdrop /></span>
+        <span className="rs-side-copy"><small>{[part.studioName, formatRuntime(part.durationSeconds)].filter(Boolean).join(' · ') || 'Your library'}</small><strong>{displayTitle(part)}</strong>{part.reason && <em>{part.reason}</em>}</span>
+      </Link></li>)}
+    </ol>
+  </aside>;
+}
+
+const bestFile = item => (item.files || []).filter(file => file.available).sort((a, b) => (b.height || 0) - (a.height || 0))[0] || (item.files || [])[0];
+function qualityLabel(file) {
+  if (!file?.width || !file?.height) return '';
+  const short = Math.min(file.width, file.height);
+  const long = Math.max(file.width, file.height);
+  return long >= 3800 || short >= 2100 ? '4K' : short >= 1000 ? '1080p' : short >= 700 ? '720p' : 'SD';
+}
+const formatBytes = bytes => { if (!bytes) return ''; const units = ['B', 'KB', 'MB', 'GB', 'TB']; let n = bytes; let i = 0; while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; } return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`; };
+const formatBitrate = bits => bits ? (bits >= 1e6 ? `${(bits / 1e6).toFixed(1)} Mbps` : `${Math.round(bits / 1e3)} kbps`) : '';
+
+// The file the player opens: resolution, codecs, size and where it lives.
+// Plain-language names for what the file is: picture quality, video and sound formats.
+function resolutionName(file) {
+  if (!file?.width || !file?.height) return '';
+  const long = Math.max(file.width, file.height);
+  const short = Math.min(file.width, file.height);
+  if (long >= 7000) return '8K';
+  if (long >= 3800 || short >= 2100) return '4K Ultra HD';
+  if (long >= 2500 || short >= 1400) return '2K Quad HD';
+  if (long >= 1800 || short >= 1000) return 'Full HD';
+  if (long >= 1200 || short >= 700) return 'HD';
+  return 'SD';
+}
+const VIDEO_NAMES = { h264: 'H.264', avc: 'H.264', avc1: 'H.264', hevc: 'HEVC (H.265)', h265: 'HEVC (H.265)', av1: 'AV1', vp9: 'VP9', vp8: 'VP8', mpeg4: 'MPEG-4', mpeg2video: 'MPEG-2', vc1: 'VC-1', wmv3: 'WMV' };
+const AUDIO_NAMES = { aac: 'AAC', ac3: 'Dolby Digital', eac3: 'Dolby Digital Plus', truehd: 'Dolby TrueHD', dts: 'DTS', 'dts-hd': 'DTS-HD', mp3: 'MP3', opus: 'Opus', flac: 'FLAC', vorbis: 'Vorbis', pcm_s16le: 'PCM', alac: 'ALAC' };
+const codecName = (table, codec) => (codec ? table[String(codec).toLowerCase()] || String(codec).toUpperCase() : '');
+const isDolby = codec => /^(ac3|eac3|truehd)$/i.test(codec || '');
+
+// The file the player opens, in words a viewer understands: quality, video and sound formats, size.
+function TechnicalCard({ item }) {
+  const file = bestFile(item);
+  if (!file) return null;
+  const quality = resolutionName(file);
+  const badges = [quality, codecName(VIDEO_NAMES, file.videoCodec), isDolby(file.audioCodec) ? 'Dolby Audio' : '', file.frameRate >= 48 ? `${Math.round(file.frameRate)} fps` : ''].filter(Boolean);
+  const rows = [
+    ['Picture', [quality, file.width && file.height ? `${file.width} × ${file.height}` : ''].filter(Boolean).join(' · ')],
+    ['Video', [codecName(VIDEO_NAMES, file.videoCodec), file.frameRate ? `${Math.round(file.frameRate * 100) / 100} fps` : '', formatBitrate(file.videoBitrate)].filter(Boolean).join(' · ')],
+    ['Sound', [codecName(AUDIO_NAMES, file.audioCodec), formatBitrate(file.audioBitrate)].filter(Boolean).join(' · ')],
+    ['Size', [formatBytes(file.fileSize), (file.container || file.extension || '').toUpperCase()].filter(Boolean).join(' · ')],
+    ...(item.files?.length > 1 ? [['Versions', `${item.files.length} files`]] : []),
+  ].filter(([, value]) => value);
+  return <section className="rs-tech" aria-labelledby="rs-tech-title">
+    <p className="rs-eyebrow">File</p>
+    <h2 id="rs-tech-title">Technical</h2>
+    {!!badges.length && <div className="rs-tech-badges">{badges.map(badge => <span key={badge} className={/Dolby/.test(badge) ? 'is-dolby' : /Ultra|8K|2K/.test(badge) ? 'is-top' : ''}>{badge}</span>)}</div>}
+    <dl className="rs-tech-list">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={value}>{value}</dd></div>)}</dl>
+    {!file.available && <p className="rs-tech-offline">This file is offline right now.</p>}
   </section>;
 }
 
@@ -377,7 +485,12 @@ export function Home({ session }) {
   const [people, setPeople] = useState([]);
   const [moods, setMoods] = useState([]);
   const [counts, setCounts] = useState({});
+  const [summary, setSummary] = useState(null);
+  const [seriesProgress, setSeriesProgress] = useState([]);
+  const { items: quickItems } = useMediaList({ limit: 16, maxDuration: 900, watched: 'unwatched', sort: 'random' });
   useEffect(() => { getHomeRecommendations().then(result => setRecs(result.sections || [])).catch(() => {}); }, []);
+  useEffect(() => { getHomeSummary().then(setSummary).catch(() => {}); }, []);
+  useEffect(() => { getHomeSeries(6).then(result => setSeriesProgress(result.items || [])).catch(() => {}); }, []);
   useEffect(() => { getContinueWatching({ limit: 12 }).then(result => setContinueItems(result.items || [])).catch(() => {}); }, []);
   useEffect(() => { getNextUp({ limit: 12 }).then(result => setNextUpItems(result.items || [])).catch(() => {}); }, []);
   useEffect(() => {
@@ -415,43 +528,93 @@ export function Home({ session }) {
     return [...withArt, ...rest];
   }, [heroPool, items, today]);
   const fresh = items.slice(0, 12);
-  const firstName = String(session?.displayName || '').trim().split(/\s+/)[0] || String(session?.email || '').split('@')[0];
   const newThisWeek = items.filter(isNew).length;
-  const summary = [
-    total ? plural(total, 'title') : null,
-    counts.performers ? plural(counts.performers, 'performer') : null,
-    counts.studios ? plural(counts.studios, 'studio') : null,
-  ].filter(Boolean).join(' · ');
   const faces = people.filter(p => p.profileImageId).slice(0, 4);
   const peekFaces = (faces.length ? faces : people.slice(0, 4)).map(person => <span key={person.id} className="rs-peek-face"><DirectoryMark item={person} index={0} type="performers" portrait /></span>);
   const peekStudios = studios.slice(0, 4).map(studio => <span key={studio.id} className="rs-peek-studio"><DirectoryMark item={studio} index={0} type="studios" /></span>);
 
   return <div className="rs-home">
-    {heroItems.length ? <HeroCarousel items={heroItems} bleed /> : !loading && !error && <div className="rs-home-empty"><span>Start here</span><h2>Your library is empty.</h2><p>The setup wizard in Admin walks you through adding your videos. Your titles will land on this page.</p><a className="rs-button rs-button-primary" href={adminHref('/admin/setup')}>Set up your library <ArrowRight size={17} /></a></div>}
+    {heroItems.length ? <HeroCarousel items={heroItems} eyebrow="Featured from your library" bleed /> : !loading && !error && <div className="rs-home-empty"><span>Start here</span><h2>Your library is empty.</h2><p>The setup wizard in Admin walks you through adding your videos. Your titles will land on this page.</p><a className="rs-button rs-button-primary" href={adminHref('/admin/setup')}>Set up your library <ArrowRight size={17} /></a></div>}
     <Status loading={loading && !items.length} error={error} retry={refresh} />
     <div className="rs-home-body">
-      <Shelf title="Continue watching" eyebrow="Pick up where you left off" tone={0} items={continueItems} renderItem={item => <MediaCard key={item.id} item={item} kicker={resumeKicker(item)} />} />
-      <Shelf title="Next up" eyebrow="Your next episodes" tone={3} items={nextUpItems} renderItem={item => <MediaCard key={item.id} item={item} kicker={nextUpKicker(item)} />} />
+      {summary && summary.titles > 0 && <LibraryPulse summary={summary} newThisWeek={newThisWeek} />}
+      <Shelf title="Continue watching" eyebrow="Pick up where you left off" href="/activity" hrefLabel="History" className="rs-shelf--wide" items={continueItems} renderItem={item => <MediaCard key={item.id} item={item} kicker={resumeKicker(item)} wide />} />
+      <Shelf title="Next up" eyebrow="Your next episodes" items={nextUpItems} renderItem={item => <MediaCard key={item.id} item={item} kicker={nextUpKicker(item)} />} />
+      {!!seriesProgress.length && <SeriesProgress items={seriesProgress} />}
+      {recs.slice(0, 1).map(section => <Shelf key={section.key} title={section.title} eyebrow={section.subtitle || 'Picked for you'} items={section.items} />)}
+      <Shelf title="Recently added" eyebrow="Fresh arrivals" href="/library" items={fresh} />
       {total > 0 && <section className="rs-explore" aria-labelledby="rs-explore-title">
         <div className="rs-section-head"><div><p className="rs-eyebrow">Explore</p><h2 id="rs-explore-title">Find something new</h2></div></div>
         <div className="rs-explore-grid">
-          <ExploreTile to="/performers" tone={7} icon={Users} label={homeTerms.people} count={counts.performers} unit="person" units="people" peek={peekFaces.length ? peekFaces : null} />
-          <ExploreTile to="/studios" tone={1} icon={Building2} label={homeTerms.studios} count={counts.studios} unit="studio" peek={peekStudios.length ? peekStudios : null} />
-          <ExploreTile to={homeMode === 'entertainment' ? '/shows' : '/series'} tone={3} icon={ListVideo} label={homeMode === 'entertainment' ? homeTerms.shows : homeTerms.seriesPlural} count={counts.series} unit="series" units="series" chips={seriesNames} />
-          <ExploreTile to="/categories" tone={5} icon={Layers3} label={homeTerms.categories} count={counts.categories} unit={homeTerms.category.toLowerCase()} units={homeTerms.categories.toLowerCase()} chips={moods.slice(0, 4).map(m => m.name)} />
+          <ExploreTile to="/performers" icon={Users} label={homeTerms.people} count={counts.performers} unit="person" units="people" peek={peekFaces.length ? peekFaces : null} />
+          <ExploreTile to="/studios" icon={Building2} label={homeTerms.studios} count={counts.studios} unit="studio" peek={peekStudios.length ? peekStudios : null} />
+          <ExploreTile to={homeMode === 'entertainment' ? '/shows' : '/series'} icon={ListVideo} label={homeMode === 'entertainment' ? homeTerms.shows : homeTerms.seriesPlural} count={counts.series} unit="series" units="series" chips={seriesNames} />
+          <ExploreTile to="/categories" icon={Layers3} label={homeTerms.categories} count={counts.categories} unit={homeTerms.category.toLowerCase()} units={homeTerms.categories.toLowerCase()} chips={moods.slice(0, 4).map(m => m.name)} />
         </div>
       </section>}
-      <Shelf title="Recently added" eyebrow="Fresh arrivals" tone={4} href="/library" items={fresh} />
-      <Shelf title="Faces in your library" eyebrow={homeTerms.people} tone={7} href="/performers" hrefLabel={`All ${homeTerms.people.toLowerCase()}`} className="rs-faces" limit={20} items={people} renderItem={person => <FaceCard key={person.id} person={person} />} />
-      <Shelf title="Your favorites" eyebrow="Saved with love" tone={6} href="/favorites" items={favorites.slice(0, 12)} />
-      {recs.map((section, index) => <Shelf key={section.key} title={section.title} eyebrow={section.subtitle || 'Picked for you'} tone={[5, 2, 3, 1][index % 4]} items={section.items} />)}
+      <Shelf title="Faces in your library" eyebrow={homeTerms.people} href="/performers" hrefLabel={`All ${homeTerms.people.toLowerCase()}`} className="rs-faces" limit={20} items={people} renderItem={person => <FaceCard key={person.id} person={person} />} />
+      <Shelf title="Your favorites" eyebrow="Saved with love" href="/favorites" items={favorites.slice(0, 12)} />
+      <Shelf title="Under 15 minutes" eyebrow="Short on time" href="/library" items={quickItems} renderItem={item => <MediaCard key={item.id} item={item} kicker={item.studioName || 'Not watched yet'} />} />
+      {recs.slice(1).map(section => <Shelf key={section.key} title={section.title} eyebrow={section.subtitle || 'Picked for you'} items={section.items} />)}
       {!!moods.length && <section className="rs-moods" aria-labelledby="rs-moods-title">
-        <div className="rs-section-head"><div><p className="rs-eyebrow">Categories</p><h2 id="rs-moods-title">Browse by mood</h2></div><Link to="/categories">All categories <ArrowRight size={16} /></Link></div>
-        <div className="rs-mood-cloud">{moods.map(mood => <Link key={mood.id} to={`/categories/${mood.id}`} className={`rs-mood ${toneClass(mood.name)}`}>{mood.name}<small>{mood.mediaCount}</small></Link>)}</div>
+        <div className="rs-section-head"><div><p className="rs-eyebrow">{homeTerms.categories}</p><h2 id="rs-moods-title">Browse by mood</h2></div><Link to="/categories" className="rs-head-link">All {homeTerms.categories.toLowerCase()} <ArrowRight size={16} /></Link></div>
+        <div className="rs-mood-grid">{moods.slice(0, 12).map(mood => <Link key={mood.id} to={`/categories/${mood.id}`} className={`rs-mood-tile ${toneClass(mood.name)}`}><strong>{mood.name}</strong><small>{plural(mood.mediaCount, 'title')}</small></Link>)}</div>
       </section>}
-      {!!studios.length && <section className="rs-studios"><div className="rs-section-head"><div><p className="rs-eyebrow">Studios</p><h2>Most titles</h2></div><Link to="/studios">All studios <ArrowRight size={16} /></Link></div><div className="rs-studio-grid">{studios.slice(0, 4).map(studio => <Link key={studio.id} to={`/studios/${studio.id}`} className={toneClass(studio.id)}><span className="rs-home-studio-mark"><DirectoryMark item={studio} index={studio.id} type="studios" /></span><strong>{studio.name}</strong><small>{plural(studio.mediaCount, 'title')}</small><ArrowUpRight size={18} /></Link>)}</div></section>}
+      {!!studios.length && <section className="rs-studios"><div className="rs-section-head"><div><p className="rs-eyebrow">Most titles</p><h2>{homeTerms.studios} in your library</h2></div><Link to="/studios" className="rs-head-link">All {homeTerms.studios.toLowerCase()} <ArrowRight size={16} /></Link></div><div className="rs-studio-grid">{studios.slice(0, 8).map(studio => <Link key={studio.id} to={`/studios/${studio.id}`}><span className="rs-home-studio-mark"><DirectoryMark item={studio} index={studio.id} type="studios" /></span><span className="rs-home-studio-copy"><strong>{studio.name}</strong><small>{plural(studio.mediaCount, 'title')}</small></span><ArrowUpRight size={18} /></Link>)}</div></section>}
     </div>
   </div>;
+}
+
+const hoursLabel = seconds => {
+  const hours = seconds / 3600;
+  if (hours >= 10) return `${Math.round(hours).toLocaleString()} hours`;
+  if (hours >= 1) return `${hours.toFixed(1)} hours`;
+  return `${Math.max(1, Math.round(seconds / 60))} min`;
+};
+const watchTimeLabel = seconds => {
+  const minutes = Math.round(seconds / 60);
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m` : `${minutes}m`;
+};
+
+// "Library at a glance" on Home: four quick numbers, each a door to the page that explains it.
+function LibraryPulse({ summary }) {
+  const { isAdmin } = useLibrary();
+  const finished = summary.playsThisMonth ? Math.round(summary.completedThisMonth / summary.playsThisMonth * 100) : 0;
+  const cards = [
+    { label: 'In your library', value: plural(summary.titles, 'title'), sub: summary.totalSeconds ? `${hoursLabel(summary.totalSeconds)} to watch` : 'Ready to watch', to: '/library' },
+    { label: 'Added this week', value: `${summary.addedThisWeek.toLocaleString()} new`, sub: summary.addedThisWeek ? `${summary.addedThisWeekUnseen.toLocaleString()} not opened yet` : 'Nothing new this week', to: '/library?added=7' },
+    { label: 'Watched this month', value: watchTimeLabel(summary.watchSecondsThisMonth), sub: summary.playsThisMonth ? `${plural(summary.playsThisMonth, 'play')} · ${finished}% finished` : 'No plays yet this month', to: '/activity' },
+    ...(isAdmin && summary.needsDetails > 0 ? [{ label: 'Waiting for details', value: plural(summary.needsDetails, 'title'), sub: 'Match them to add people & tags', href: adminHref('/admin/review') }] : []),
+  ];
+  return <section className="rs-pulse" aria-label="Library at a glance">
+    {cards.map(card => {
+      const body = <><span className="rs-pulse-label">{card.label}</span><strong className="rs-pulse-value">{card.value}</strong><span className="rs-pulse-sub">{card.sub}</span></>;
+      return card.href ? <a key={card.label} href={card.href} className="rs-pulse-card">{body}</a> : <Link key={card.label} to={card.to} className="rs-pulse-card">{body}</Link>;
+    })}
+  </section>;
+}
+
+// "Up next in your series": series you're part-way through, with the part to watch next.
+function SeriesProgress({ items }) {
+  const { terms, mode } = useLibrary();
+  return <section className="rs-keepgoing" aria-labelledby="rs-keepgoing-title">
+    <div className="rs-section-head"><div><p className="rs-eyebrow">Keep going</p><h2 id="rs-keepgoing-title">Up next in your {mode === 'entertainment' ? 'shows' : terms.seriesPlural.toLowerCase()}</h2></div></div>
+    <div className="rs-keepgoing-grid">
+      {items.map(series => {
+        const next = series.next;
+        const route = `/${series.kind === 'show' && mode === 'entertainment' ? 'shows' : 'series'}/${series.id}`;
+        return <article key={series.id} className="rs-keepgoing-card">
+          <Link to={`/library/${next.id}`} state={{ autoplay: true, from: '/' }} className="rs-keepgoing-art" aria-label={`Play ${displayTitle(next)}`}><Artwork item={next} preferBackdrop /><span className="rs-card-play" aria-hidden="true"><Play size={16} fill="currentColor" /></span></Link>
+          <div className="rs-keepgoing-copy">
+            <span className="rs-keepgoing-next">Next: Part {series.nextPosition} · {formatRuntime(next.durationSeconds) || displayTitle(next)}</span>
+            <Link to={route} className="rs-keepgoing-name">{series.name}</Link>
+            <span className="rs-keepgoing-meta">{series.watched} of {series.total} watched</span>
+            <span className="rs-keepgoing-bar" aria-hidden="true">{Array.from({ length: Math.min(series.total, 24) }, (_, i) => <i key={i} className={i < series.watched ? 'is-done' : ''} />)}</span>
+          </div>
+        </article>;
+      })}
+    </div>
+  </section>;
 }
 
 // Studio names for the "Filter by studio" dropdown (paged in 200 at a time).
@@ -478,7 +641,7 @@ function useStudioNames(enabled = true) {
 }
 
 // Studio / rating / sort filters shared by the Library and the performer / studio / category / series pages.
-function TitleFilters({ studios, studio, onStudio, sort, onSort, rating, onRating, seriesOrder = false, performerOrder = false }) {
+function TitleFilters({ studios, studio, onStudio, sort, onSort, rating, onRating, watched, onWatched, kind, onKind, seriesOrder = false, performerOrder = false }) {
   const studioOptions = useMemo(() => [{ value: 'all', label: 'All studios' }, ...(studios || []).map(name => ({ value: name, label: name }))], [studios]);
   const ratingOptions = [{ value: '0', label: 'Any rating' }, ...[5, 4, 3, 2, 1].map(n => ({ value: String(n), label: `${n}+ stars` }))];
   const sortOptions = [
@@ -487,14 +650,16 @@ function TitleFilters({ studios, studio, onStudio, sort, onSort, rating, onRatin
     { value: 'recent', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }, { value: 'title', label: 'Title A–Z' },
   ];
   return <div className="rs-filters">
+ {onKind && <FilterSelect label="Type" value={kind} options={[{ value: 'all', label: 'All videos' }, { value: 'videos', label: 'Videos' }, { value: 'reels', label: 'Reels' }]} onChange={onKind} />}
     {studios && <FilterSelect label="Studio" value={studio} options={studioOptions} onChange={onStudio} searchable searchPlaceholder="Find a studio…" />}
+ {onWatched && <FilterSelect label="Watched" value={watched} options={WATCHED_FILTERS} onChange={onWatched} />}
     {onRating && <FilterSelect label="Rating" value={String(rating)} options={ratingOptions} onChange={onRating} />}
     <FilterSelect label="Sort" value={sort} options={sortOptions} onChange={onSort} />
   </div>;
 }
 
 // Play / Shuffle for whatever list is on screen: fills the queue from the same filters and opens the first title.
-function PlayButtons({ filters, ordered = false }) {
+function PlayButtons({ filters, ordered = false, shuffleLabel = 'Shuffle' }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [busy, setBusy] = useState('');
@@ -508,7 +673,7 @@ function PlayButtons({ filters, ordered = false }) {
   }
   return <div className="rs-play-buttons">
     {ordered && <button type="button" className="rs-button rs-button-primary" disabled={!!busy} onClick={() => run(false)}><Play size={16} fill="currentColor" /> Play all</button>}
-    <button type="button" className="rs-button rs-button-outline" disabled={!!busy} onClick={() => run(true)}><Shuffle size={16} /> Shuffle</button>
+    <button type="button" className="rs-button rs-button-outline" disabled={!!busy} onClick={() => run(true)}><Shuffle size={16} /> {shuffleLabel}</button>
   </div>;
 }
 
@@ -534,15 +699,75 @@ function SearchPerformers({ query, favoritesOnly = false, full = false, onMore }
   </section>;
 }
 
+const DURATION_FILTERS = [
+  { value: 'any', label: 'Any length' },
+  { value: 'u15', label: 'Under 15 min', params: { maxDuration: 900 } },
+  { value: 'u30', label: 'Under 30 min', params: { maxDuration: 1800 } },
+  { value: '30-60', label: '30–60 min', params: { minDuration: 1800, maxDuration: 3600 } },
+  { value: 'o60', label: 'Over 1 hour', params: { minDuration: 3600 } },
+];
+const QUALITY_FILTERS = [{ value: 'any', label: 'Any quality' }, { value: '4k', label: '4K' }, { value: '1080p', label: '1080p' }, { value: '720p', label: '720p' }, { value: 'sd', label: 'SD' }];
+const WATCHED_FILTERS = [{ value: 'any', label: 'Any' }, { value: 'unwatched', label: 'Not watched' }, { value: 'inProgress', label: 'In progress' }, { value: 'watched', label: 'Watched' }];
+const ADDED_FILTERS = [{ value: 'any', label: 'Any time' }, { value: '1', label: 'Today' }, { value: '7', label: 'This week' }, { value: '30', label: 'This month' }, { value: '90', label: 'Last 3 months' }];
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Recently added' }, { value: 'oldest', label: 'Oldest first' }, { value: 'title', label: 'Title A–Z' },
+  { value: 'watched', label: 'Most played' }, { value: 'rated', label: 'Highest rated' },
+];
+
+// People and categories for the Library's filter pills (top people by titles; type to search the rest).
+function usePeopleOptions(enabled) {
+  const [query, setQuery] = useState('');
+  const debounced = useDebounce(query, 200);
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let live = true;
+    getPerformers({ limit: 60, ...(debounced.trim() ? { q: debounced.trim() } : {}) }).then(result => { if (live) setItems(result.items || []); }).catch(() => {});
+    return () => { live = false; };
+  }, [enabled, debounced]);
+  return [items, setQuery];
+}
+
+function useCategoryOptions(enabled) {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let live = true;
+    getCategories().then(result => { if (live) setItems((result.items || []).filter(c => c.mediaCount > 0).sort((a, b) => b.mediaCount - a.mediaCount)); }).catch(() => {});
+    return () => { live = false; };
+  }, [enabled]);
+  return items;
+}
+
+const SCOPES = [['all', 'Everything'], ['videos', 'Videos'], ['reels', 'Reels'], ['unwatched', 'Not watched'], ['inProgress', 'In progress']];
+
 export function Catalog({ type = 'library' }) {
   const { terms } = useLibrary();
   const [params, setParams] = useSearchParams();
   const query = params.get('q') || '';
   const debouncedQuery = useDebounce(query, 250);
-  const [studio, setStudio] = usePersistedState(`catalog:${type}:studio`, 'all');
+  const [studios, setStudios] = usePersistedState(`catalog:${type}:studios`, []);
   const [sort, setSort] = usePersistedState(`catalog:${type}:sort`, 'recent');
   const [rating, setRating] = usePersistedState(`catalog:${type}:rating`, '0');
-  const studios = useStudioNames();
+  const [mediaKind, setMediaKind] = usePersistedState('catalog:library:media-kind', 'all');
+  const [person, setPerson] = usePersistedState(`catalog:${type}:person`, '');
+  const [personName, setPersonName] = usePersistedState(`catalog:${type}:person-name`, '');
+  const [category, setCategory] = usePersistedState(`catalog:${type}:category`, '');
+  const [duration, setDuration] = usePersistedState(`catalog:${type}:duration`, 'any');
+  const [quality, setQuality] = usePersistedState(`catalog:${type}:quality`, 'any');
+  const [watched, setWatched] = usePersistedState(`catalog:${type}:watched`, 'any');
+  const [added, setAdded] = usePersistedState(`catalog:${type}:added`, 'any');
+  // Links such as Home's "Added this week" arrive with ?added=7.
+  useEffect(() => {
+    const fromLink = params.get('added');
+    if (!fromLink) return;
+    setAdded(ADDED_FILTERS.some(option => option.value === fromLink) ? fromLink : 'any');
+    const next = new URLSearchParams(params); next.delete('added'); setParams(next, { replace: true });
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+  const studioNames = useStudioNames();
+  const browsing = type !== 'search';
+  const [people, searchPeople] = usePeopleOptions(browsing);
+  const categories = useCategoryOptions(browsing);
   const tab = type === 'favorites' || type === 'search' ? (['performers', 'videos'].includes(params.get('tab')) ? params.get('tab') : 'overview') : 'videos';
   const setTab = value => { const next = new URLSearchParams(params); if (value === 'overview') next.delete('tab'); else next.set('tab', value); setParams(next); };
   const showPerformers = (type === 'search' || type === 'favorites') && tab !== 'videos';
@@ -550,27 +775,95 @@ export function Catalog({ type = 'library' }) {
   const [cardStyle] = useCardStyle();
   const cards = cardMetrics(cardStyle);
   const minColumn = useColumnCount(cards.wideColumn, cards.narrowColumn, '(max-width: 640px)');
+  const kindFilter = type === 'library' && mediaKind !== 'all' ? { reels: String(mediaKind === 'reels') } : {};
   const filters = useMemo(() => ({
     ...(type === 'favorites' ? { favorite: 'true' } : {}),
     ...(type === 'watchlater' ? { watchLater: 'true' } : {}),
     ...(type === 'movies' ? { kind: 'movie' } : {}),
+    ...kindFilter,
     ...(debouncedQuery.trim() ? { q: debouncedQuery.trim() } : {}),
-    ...(studio !== 'all' ? { studio } : {}),
+    ...(studios.length === 1 ? { studio: studios[0] } : studios.length > 1 ? { studios: studios.join(',') } : {}),
     ...(rating !== '0' ? { minRating: String(ratingFromStars(Number(rating))) } : {}),
+    ...(person ? { performerId: person } : {}),
+    ...(category ? { categoryId: category } : {}),
+    ...(DURATION_FILTERS.find(option => option.value === duration)?.params || {}),
+    ...(quality !== 'any' ? { quality } : {}),
+    ...(watched !== 'any' ? { watched } : {}),
+    ...(added !== 'any' ? { addedWithin: added } : {}),
     ...(sort !== 'recent' ? { sort } : {}),
-  }), [type, debouncedQuery, studio, rating, sort]);
+  }), [type, debouncedQuery, studios, rating, sort, mediaKind, person, category, duration, quality, watched, added]); // eslint-disable-line react-hooks/exhaustive-deps
   const { items, total, loading, loadingMore, error, hasMore, loadMore, refresh } = useInfiniteList(mediaQuery(filters), JSON.stringify(filters));
   const label = type === 'search' ? 'Search' : type === 'favorites' ? 'Favorites' : type === 'watchlater' ? 'Watch later' : type === 'movies' ? terms.movies : terms.library;
   useScrollRestoration(showVideos && !!items.length, [items.length]);
 
-  return <div className={`rs-page rs-catalog-${type}`}>
-    <header className="rs-page-header"><p className="rs-eyebrow">{type === 'favorites' || type === 'watchlater' ? 'Saved' : type === 'search' ? 'Search' : 'Library'}</p><div className="rs-page-title-row"><h1>{label}<span className="rs-count">{loading && !items.length ? '…' : `${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`}</span></h1><div className="rs-title-controls">{showVideos && total > 0 && <PlayButtons filters={filters} ordered={type === 'watchlater'} />}{showVideos && <TitleFilters studios={studios} studio={studio} onStudio={setStudio} rating={rating} onRating={setRating} sort={sort} onSort={setSort} />}</div></div>{type === 'favorites' && <Tabs className="rs-favorites-tabs" value={tab} onValueChange={setTab}><TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="performers">Performers</TabsTrigger><TabsTrigger value="videos">Videos</TabsTrigger></TabsList></Tabs>}<p>{type === 'favorites' ? 'Titles you saved to come back to.' : type === 'watchlater' ? 'Titles you set aside to watch when you have time. Finished ones drop off on their own.' : type === 'search' ? 'Search titles, performers, and studios.' : type === 'movies' ? 'Every movie in this library.' : 'Every title in your library.'}</p></header>
+  const scope = mediaKind !== 'all' ? mediaKind : (watched === 'unwatched' || watched === 'inProgress' ? watched : 'all');
+  const pickScope = value => {
+    if (value === 'videos' || value === 'reels') { setMediaKind(value); if (watched === 'unwatched' || watched === 'inProgress') setWatched('any'); }
+    else if (value === 'all') { setMediaKind('all'); setWatched('any'); }
+    else { setMediaKind('all'); setWatched(value); }
+  };
+  const chips = [
+    ...studios.map(name => ({ key: `s:${name}`, label: `${terms.studio}: ${name}`, clear: () => setStudios(studios.filter(s => s !== name)) })),
+    person && { key: 'p', label: `${terms.person}: ${personName || 'chosen'}`, clear: () => { setPerson(''); setPersonName(''); } },
+    category && { key: 'c', label: `${terms.category}: ${categories.find(c => String(c.id) === String(category))?.name || 'chosen'}`, clear: () => setCategory('') },
+    rating !== '0' && { key: 'r', label: `Rating: ${rating}+ ★`, clear: () => setRating('0') },
+    duration !== 'any' && { key: 'd', label: DURATION_FILTERS.find(o => o.value === duration)?.label, clear: () => setDuration('any') },
+    quality !== 'any' && { key: 'q', label: `Quality: ${QUALITY_FILTERS.find(o => o.value === quality)?.label}`, clear: () => setQuality('any') },
+    watched !== 'any' && scope === 'all' && { key: 'w', label: WATCHED_FILTERS.find(o => o.value === watched)?.label, clear: () => setWatched('any') },
+    added !== 'any' && { key: 'a', label: `Added ${ADDED_FILTERS.find(o => o.value === added)?.label.toLowerCase()}`, clear: () => setAdded('any') },
+  ].filter(Boolean);
+  const narrowed = chips.length > 0 || !!query || (type === 'library' && mediaKind !== 'all') || watched !== 'any';
+  const clearAll = () => { setStudios([]); setPerson(''); setPersonName(''); setCategory(''); setRating('0'); setDuration('any'); setQuality('any'); setWatched('any'); setAdded('any'); if (type === 'library') setMediaKind('all'); };
+  const blurb = type === 'favorites' ? 'Titles you saved to come back to.' : type === 'watchlater' ? 'Titles you set aside to watch when you have time. Finished ones drop off on their own.' : type === 'search' ? 'Search titles, people and studios.' : type === 'movies' ? 'Every movie in this library.' : 'Every title in your library. Your filters stay put when you come back.';
+  const countText = loading && !items.length ? '…' : `${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`;
+
+  return <div className={`rs-page rs-catalog rs-catalog-${type}`}>
+    <header className="rs-page-head">
+      <div>
+        <p className="rs-eyebrow">{type === 'favorites' || type === 'watchlater' ? 'Saved' : type === 'search' ? 'Search' : 'Library'}</p>
+        <h1 className="rs-page-title">{label}<span className="rs-count">{countText}</span></h1>
+        <p className="rs-page-sub">{blurb}</p>
+      </div>
+      {showVideos && total > 0 && <PlayButtons filters={filters} ordered={type === 'watchlater'} />}
+    </header>
+    {type === 'favorites' && <Tabs className="rs-favorites-tabs" value={tab} onValueChange={setTab}><TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="performers">{terms.people}</TabsTrigger><TabsTrigger value="videos">{terms.titles}</TabsTrigger></TabsList></Tabs>}
+    {(type === 'library' || type === 'movies') && <div className="rs-scopes" role="group" aria-label="Show">
+      {SCOPES.filter(([id]) => type === 'library' || (id !== 'videos' && id !== 'reels')).map(([id, text]) => <button key={id} type="button" className={`rs-scope${scope === id ? ' is-active' : ''}`} aria-pressed={scope === id} onClick={() => pickScope(id)}>{text}</button>)}
+      <span className="rs-scopes-sep" aria-hidden="true" />
+      <Link className="rs-scope" to="/favorites">Favorites</Link>
+      <Link className="rs-scope" to="/watch-later">Watch later</Link>
+    </div>}
+    {showVideos && <div className="rs-filterbar">
+      <FilterPanel
+        activeCount={chips.length}
+        onClear={clearAll}
+        sections={[
+          { id: 'studio', label: terms.studio, kind: 'multi', values: studios, onChange: setStudios, hidden: !browsing, options: studioNames.map(name => ({ value: name, label: name })) },
+          { id: 'person', label: terms.person, kind: 'single', value: person, hidden: !browsing, onSearch: searchPeople,
+            onChange: value => { setPerson(value); setPersonName(people.find(p => String(p.id) === value)?.name || ''); },
+            options: [{ value: '', label: 'Anyone' }, ...(person && !people.some(p => String(p.id) === String(person)) ? [{ value: person, label: personName || 'Chosen' }] : []), ...people.map(p => ({ value: String(p.id), label: p.name, count: p.mediaCount }))] },
+          { id: 'category', label: terms.category, kind: 'single', value: category, onChange: setCategory, hidden: !browsing, options: [{ value: '', label: 'Any' }, ...categories.map(c => ({ value: String(c.id), label: c.name, count: c.mediaCount }))] },
+          { id: 'rating', label: 'Rating', kind: 'chips', value: String(rating), onChange: setRating, options: [{ value: '0', label: 'Any' }, ...[5, 4, 3, 2, 1].map(n => ({ value: String(n), label: `${n}+ ★` }))] },
+          { id: 'length', label: 'Length', kind: 'chips', value: duration, onChange: setDuration, options: DURATION_FILTERS },
+          { id: 'quality', label: 'Quality', kind: 'chips', value: quality, onChange: setQuality, options: QUALITY_FILTERS },
+          { id: 'watched', label: 'Watched', kind: 'chips', value: watched, onChange: setWatched, hidden: scope !== 'all', options: WATCHED_FILTERS },
+          { id: 'added', label: 'Added', kind: 'chips', value: added, onChange: setAdded, options: ADDED_FILTERS },
+        ]}
+      />
+      <span className="rs-filterbar-gap" />
+      <FilterSelect label="Sort" value={sort} options={SORT_OPTIONS} onChange={setSort} />
+    </div>}
+    {showVideos && !!chips.length && <div className="rs-chips-bar">
+      {chips.map(chip => <FilterChip key={chip.key} onRemove={chip.clear} label={`Remove ${chip.label}`}>{chip.label}</FilterChip>)}
+      <button type="button" className="rs-clear-all" onClick={clearAll}>Clear all</button>
+    </div>}
     {showPerformers && <SearchPerformers query={debouncedQuery.trim()} favoritesOnly={type === 'favorites'} full={tab === 'performers'} onMore={type === 'favorites' && tab === 'overview' ? () => setTab('performers') : undefined} />}
     {showVideos && <>
-    <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !query && studio === 'all'} retry={refresh} title={type === 'favorites' ? 'No favorites yet' : type === 'watchlater' ? 'Nothing saved for later' : 'Your library is waiting'} message={type === 'favorites' ? 'Save titles from their detail pages and they will appear here.' : type === 'watchlater' ? 'Use Watch later on a title and it will wait for you here.' : 'Add media from Admin to begin your collection.'} />
-    {!loading && !error && !items.length && (query || studio !== 'all') && <Status empty icon={SearchX} title="No matches found" message="Try another search or studio." />}
-    {!!items.length && <VirtualWindow items={items} minColumn={minColumn} gapX={16} gapY={24} aspect={cards.aspect} extra={96} hasMore={hasMore} onNearEnd={loadMore} renderItem={item => <MediaCard item={item} />} />}
+    <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !narrowed} retry={refresh} title={type === 'favorites' ? 'No favorites yet' : type === 'watchlater' ? 'Nothing saved for later' : 'Your library is waiting'} message={type === 'favorites' ? 'Save titles from their detail pages and they will appear here.' : type === 'watchlater' ? 'Use Watch later on a title and it will wait for you here.' : 'Add media from Admin to begin your collection.'} />
+    {!loading && !error && !items.length && narrowed && <div className="rs-status is-empty" role="status"><span className="rs-status-icon"><SearchX size={26} strokeWidth={1.75} /></span><h2>No matches</h2><p>Nothing fits these filters. Remove one or clear them all.</p>{chips.length > 0 && <div className="rs-status-actions"><button type="button" className="rs-button rs-button-outline" onClick={clearAll}>Clear all filters</button></div>}</div>}
+    {!!items.length && <VirtualWindow items={items} minColumn={minColumn} gapX={18} gapY={26} aspect={cards.aspect} extra={72} hasMore={hasMore} onNearEnd={loadMore} renderItem={item => <MediaCard item={item} />} />}
     {loadingMore && <p className="rs-virtual-status">Loading more titles…</p>}
+    {!loadingMore && !hasMore && items.length > 24 && <p className="rs-virtual-status">That’s all {total.toLocaleString()}.</p>}
     </>}
   </div>;
 }
@@ -624,8 +917,18 @@ function countLabel(count) {
   return `${count} ${count === 1 ? 'title' : 'titles'}`;
 }
 
-function PerformerCard({ item, index, note }) {
+function PerformerCard({ item, index, note, below = false }) {
   const count = item.mediaCount || 0;
+  if (below) {
+    // The directory's card as designed: the portrait, then name and counts underneath.
+    return <Link to={`/performers/${item.id}`} className={`rs-portrait-card is-below ${toneClass(item.id)}`} aria-label={`${item.name}, ${countLabel(count)}`}>
+      <span className="rs-portrait-frame">
+        <DirectoryMark item={item} index={index} type="performers" portrait />
+        {item.favorite && <span className="rs-portrait-fav" aria-label="Favorite"><Heart size={14} fill="currentColor" aria-hidden="true" /></span>}
+      </span>
+      <span className="rs-portrait-caption"><strong>{item.name}</strong><small>{countLabel(count)}{item.unwatchedCount != null ? ` · ${item.unwatchedCount} not watched` : ''}</small></span>
+    </Link>;
+  }
   return <Link to={`/performers/${item.id}`} className={`rs-portrait-card ${toneClass(item.id)}`} aria-label={`${item.name}, ${countLabel(count)}`}>
     <span className="rs-portrait-frame">
       <DirectoryMark item={item} index={index} type="performers" portrait />
@@ -688,12 +991,44 @@ const BROWSE_VARIANTS = {
   collections: { params: { kind: 'collection' }, title: terms => terms.seriesPlural, singular: terms => terms.series, blurb: 'Movies that belong together.' },
 };
 
+// "You watch most this month": the people behind the titles played most in the last 30 days.
+function MostWatchedStrip() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let live = true;
+    getWatchActivity(30).then(data => { if (live) setRows((data.performers || []).slice(0, 5)); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  if (!rows.length) return null;
+  const length = seconds => { const m = Math.round((seconds || 0) / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`; };
+  return <section className="rs-most-watched" aria-label="You watch most this month">
+    <div className="rs-most-watched-head"><h2>You watch most this month</h2><Link to="/activity">Activity</Link></div>
+    <ol>{rows.map((row, i) => {
+      const mono = monogram(row.name);
+      return <li key={row.id}><Link to={`/performers/${row.id}`}>
+        <span className="rs-most-rank">{i + 1}</span>
+        <span className={`rs-most-avatar${row.profileImageId ? '' : ' rs-mono'}`} style={row.profileImageId ? undefined : mono.style}>{row.profileImageId ? <img src={performerImageUrl(row.id, row.profileImageId)} alt="" loading="lazy" /> : mono.initials}</span>
+        <span className="rs-most-copy"><strong>{row.name}</strong><small>{row.plays} {row.plays === 1 ? 'play' : 'plays'} · {length(row.watchSeconds)}</small></span>
+      </Link></li>;
+    })}</ol>
+  </section>;
+}
+
 export function Browse({ type, variant }) {
   const { terms, isAdmin, mode } = useLibrary();
   const extra = mode === 'entertainment' ? BROWSE_VARIANTS[variant] : null;
   const config = { ...dimensions[type], ...dimensionTerms(type, terms), ...(extra ? { title: extra.title(terms), singular: extra.singular(terms) } : {}) };
   const [query, setQuery] = useState('');
-  const [onlyFavorites, setOnlyFavorites] = usePersistedState(`browse:${type}:onlyFavorites`, false);
+  const [peopleTab, setPeopleTab] = usePersistedState(`browse:${type}:tab`, 'all'); // all | favorites | recent | photo
+  const onlyFavorites = peopleTab === 'favorites';
+  const [tabCounts, setTabCounts] = useState({});
+  useEffect(() => {
+    if (type !== 'performers' || variant === 'directors') return undefined;
+    let live = true;
+    Promise.all([getPerformers({ favorite: 'true', limit: 1 }), getPerformers({ needsPhoto: 'true', limit: 1 })])
+      .then(([fav, photo]) => { if (live) setTabCounts({ favorites: fav.total, photo: photo.total }); }).catch(() => {});
+    return () => { live = false; };
+  }, [type, variant]);
   const [letter, setLetter] = usePersistedState(`browse:${type}:letter`, '');
   const [showEmpty, setShowEmpty] = usePersistedState(`browse:${type}:showEmpty`, false);
   const [sort, setSort] = usePersistedState(`browse:${type}:sort`, 'count');
@@ -703,8 +1038,8 @@ export function Browse({ type, variant }) {
   const debounced = useDebounce(query, 250);
   const favoriteFilter = type === 'performers' && onlyFavorites;
   const { items, total, loading, loadingMore, error, hasMore, loadMore, refresh } = useInfiniteList(
-    ({ limit, offset }) => config.fetchPage({ limit, offset, q: debounced.trim(), favorite: favoriteFilter ? 'true' : '', letter: type === 'performers' ? letter : '', showEmpty, ...(type === 'performers' && sort !== 'count' ? { sort } : {}), ...(extra?.params || {}) }),
-    `${type}:${variant || ''}:${debounced.trim()}:${favoriteFilter}:${letter}:${showEmpty}:${sort}`,
+    ({ limit, offset }) => config.fetchPage({ limit, offset, q: debounced.trim(), favorite: favoriteFilter ? 'true' : '', ...(type === 'performers' && peopleTab === 'recent' ? { recent: 'true' } : {}), ...(type === 'performers' && peopleTab === 'photo' ? { needsPhoto: 'true' } : {}), letter: type === 'performers' ? letter : '', showEmpty, ...(type === 'performers' && sort !== 'count' ? { sort } : {}), ...(extra?.params || {}) }),
+    `${type}:${variant || ''}:${debounced.trim()}:${favoriteFilter}:${peopleTab}:${letter}:${showEmpty}:${sort}`,
   );
   useScrollRestoration(!!items.length, [items.length]);
 
@@ -715,16 +1050,22 @@ export function Browse({ type, variant }) {
     categories: 'Topics used in your collection.',
   };
   return <div className={`rs-page rs-catalog-${type}`}>
-    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total}</span></h1><p>{extra?.blurb || blurbs[type]}</p></div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}{isAdmin && type === 'performers' && variant !== 'directors' && <button type="button" className="rs-button rs-button-outline rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.person.toLowerCase()}</button>}{isAdmin && type === 'series' && variant !== 'shows' && <button type="button" className="rs-button rs-button-outline rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.series.toLowerCase()}</button>}</div></div></header>
+    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total.toLocaleString()}</span></h1>{type !== 'performers' && <p>{extra?.blurb || blurbs[type]}</p>}</div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}{isAdmin && type === 'performers' && variant !== 'directors' && <button type="button" className="rs-button rs-button-primary rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.person.toLowerCase()}</button>}{isAdmin && type === 'series' && variant !== 'shows' && <button type="button" className="rs-button rs-button-outline rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.series.toLowerCase()}</button>}</div></div></header>
+    {type === 'performers' && variant !== 'directors' && !query && peopleTab === 'all' && !letter && <MostWatchedStrip />}
     {type === 'performers' && <div className="rs-performer-subbar">
-      <Tabs value={onlyFavorites ? 'favorites' : 'all'} onValueChange={value => setOnlyFavorites(value === 'favorites')}><TabsList><TabsTrigger value="all">All</TabsTrigger><TabsTrigger value="favorites"><Heart size={14} /> Favorites</TabsTrigger></TabsList></Tabs>
+      <Tabs value={peopleTab} onValueChange={setPeopleTab}><TabsList>
+        <TabsTrigger value="all">All</TabsTrigger>
+        <TabsTrigger value="favorites"><Heart size={14} /> Favorites{tabCounts.favorites != null ? ` · ${tabCounts.favorites.toLocaleString()}` : ''}</TabsTrigger>
+        {variant !== 'directors' && <TabsTrigger value="recent">Recently watched</TabsTrigger>}
+        {variant !== 'directors' && <TabsTrigger value="photo">Needs a photo{tabCounts.photo != null ? ` · ${tabCounts.photo.toLocaleString()}` : ''}</TabsTrigger>}
+      </TabsList></Tabs>
       <nav className="rs-az" aria-label="Filter by first letter">{['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(l => <button key={l} type="button" className={letter === l ? 'is-active' : ''} aria-pressed={letter === l} onClick={() => setLetter(current => current === l ? '' : l)}>{l}</button>)}</nav>
     </div>}
     {type === 'performers' && <NewPerformerDialog open={creating} onOpenChange={setCreating} onCreated={id => navigate(`/performers/${id}`)} />}
     {type === 'series' && <NewSeriesDialog open={creating} onOpenChange={setCreating} onCreated={id => navigate(`/series/${id}`)} />}
     <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !query && !favoriteFilter && !letter} retry={refresh} title={`No ${config.title.toLowerCase()} yet`} message={type === 'series' ? 'Group the scenes of a movie or the episodes of a show: choose New series, or open a video’s Settings and use its Series tab.' : type === 'categories' ? 'No titles have categories yet.' : 'They appear here as your library is scanned.'} href={type === 'series' || type === 'categories' ? '/library' : undefined} action="Browse titles" />
     {!loading && !error && (!!query || favoriteFilter || !!letter) && !items.length && <Status empty title={favoriteFilter && !query ? 'No favorite performers yet' : 'No matches'} message={favoriteFilter && !query ? 'Open a performer and tap Favorite.' : 'Try a different name.'} />}
-    {!!items.length && type === 'performers' && <VirtualWindow className="rs-portrait-grid" items={items} minColumn={180} gapX={16} gapY={16} aspect={3 / 4} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <PerformerCard item={item} index={index} />} />}
+    {!!items.length && type === 'performers' && <VirtualWindow className="rs-portrait-grid" items={items} minColumn={168} gapX={16} gapY={24} aspect={3 / 4} extra={56} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <PerformerCard item={item} index={index} below />} />}
     {!!items.length && type === 'studios' && <VirtualWindow className="rs-studio-cards" items={items} minColumn={220} gapX={16} gapY={16} rowHeight={138} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <StudioCard item={item} index={index} />} />}
     {!!items.length && type === 'series' && (view === 'list'
       ? <VirtualWindow className="rs-series-list-view" items={items} columns={1} gapX={0} gapY={10} rowHeight={140} hasMore={hasMore} onNearEnd={loadMore} renderItem={item => <SeriesCard item={item} view="list" base={variant === 'shows' && extra ? 'shows' : 'series'} />} />
@@ -823,6 +1164,37 @@ function NewSeriesDialog({ open, onOpenChange, onCreated }) {
   </DialogContent></Dialog>;
 }
 
+// "Start here" on a person's page: the title you play most and the newest one you have not watched.
+function StartHere({ titles, name }) {
+  const location = useLocation();
+  const picks = useMemo(() => {
+    const played = [...titles].filter(t => t.watchCount > 0).sort((a, b) => b.watchCount - a.watchCount)[0];
+    const fresh = [...titles].filter(t => !t.watchCount && !t.positionSeconds && (!played || t.id !== played.id)).sort((a, b) => String(b.dateAdded || '').localeCompare(String(a.dateAdded || '')))[0];
+    return [
+      played && { item: played, why: 'Your most played', meta: [played.studioName, formatRuntime(played.durationSeconds), `watched ${played.watchCount}×`].filter(Boolean).join(' · ') },
+      fresh && { item: fresh, why: 'Newest · not watched', meta: [fresh.studioName, formatRuntime(fresh.durationSeconds), fresh.dateAdded ? `added ${new Date(fresh.dateAdded).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''].filter(Boolean).join(' · ') },
+    ].filter(Boolean);
+  }, [titles]);
+  if (!picks.length) return null;
+  return <section className="rs-start-here" aria-label="Start here">
+    <div className="rs-section-head"><div><p className="rs-eyebrow">Featuring {name}</p><h2>Start here</h2></div></div>
+    <div className="rs-start-cards">
+      {picks.map(({ item, why, meta }) => <article key={item.id} className={`rs-start-card ${toneClass(item.id)}`}>
+        <Artwork item={item} preferBackdrop />
+        <div className="rs-start-copy">
+          <span className="rs-start-why">{why}</span>
+          <strong>{displayTitle(item)}</strong>
+          {meta && <small>{meta}</small>}
+          <div className="rs-start-actions">
+            <Link className="rs-button rs-button-primary" to={`/library/${item.id}`} state={{ autoplay: true, from: location.pathname }}>Play</Link>
+            <Link className="rs-button rs-button-secondary" to={`/library/${item.id}`}>Details</Link>
+          </div>
+        </div>
+      </article>)}
+    </div>
+  </section>;
+}
+
 export function BrowseDetail({ type }) {
   const { toast } = useToast();
   const { name: id } = useParams();
@@ -834,7 +1206,7 @@ export function BrowseDetail({ type }) {
     setSimilar([]);
     if (type !== 'performers') return undefined;
     let live = true;
-    getRelatedPerformers(id, 12).then(result => { if (live) setSimilar((result.items || []).filter(person => person.profileImageId)); }).catch(() => {});
+    getRelatedPerformers(id, 12).then(result => { if (live) setSimilar(result.items || []); }).catch(() => {});
     return () => { live = false; };
   }, [type, id]);
   const { terms, isAdmin } = useLibrary();
@@ -846,13 +1218,15 @@ export function BrowseDetail({ type }) {
   const [studio, setStudio] = useState('all');
   const defaultSort = type === 'series' ? 'series' : type === 'performers' ? 'watched' : 'recent';
   const [sort, setSort] = useState(defaultSort);
-  useEffect(() => { setStudio('all'); setSort(defaultSort); }, [type, id, defaultSort]);
+  const [watchedFilter, setWatchedFilter] = useState('any');
+  const [kindFilter, setKindFilter] = useState('all');
+  useEffect(() => { setStudio('all'); setSort(defaultSort); setWatchedFilter('any'); setKindFilter('all'); }, [type, id, defaultSort]);
   const studios = useStudioNames(type !== 'studios');
   const filters = useMemo(() => ({ [config.filterKey]: id }), [config.filterKey, id]);
-  const listFilters = useMemo(() => ({ ...filters, ...(studio !== 'all' ? { studio } : {}), ...(sort !== 'recent' || type === 'series' ? { sort } : {}) }), [filters, studio, sort, type]);
-  const { items, total, loading, loadingMore, error, hasMore, loadMore, refresh } = useInfiniteList(mediaQuery(listFilters), `${type}:${id}:${studio}:${sort}`);
+  const listFilters = useMemo(() => ({ ...filters, ...(studio !== 'all' ? { studio } : {}), ...(sort !== 'recent' || type === 'series' ? { sort } : {}), ...(type === 'performers' && watchedFilter !== 'any' ? { watched: watchedFilter } : {}), ...(type === 'performers' && kindFilter === 'reels' ? { reels: 'true' } : {}), ...(type === 'performers' && kindFilter === 'videos' ? { reels: 'false' } : {}) }), [filters, studio, sort, type, watchedFilter, kindFilter]);
+  const { items, total, loading, loadingMore, error, hasMore, loadMore, refresh } = useInfiniteList(mediaQuery(listFilters), `${type}:${id}:${studio}:${sort}:${watchedFilter}:${kindFilter}`);
   useScrollRestoration(!!items.length, [items.length]);
-  const filtered = studio !== 'all' || sort !== defaultSort;
+  const filtered = studio !== 'all' || sort !== defaultSort || watchedFilter !== 'any' || kindFilter !== 'all';
   const isStudio = type === 'studios' || type === 'performers';
   const studioFilters = useMemo(() => ({ ...filters, limit: 5 }), [filters]);
   const { items: featuredArt } = useMediaList(isStudio ? { ...filters, limit: HERO_SLIDE_COUNT, sort: 'random', hasArtwork: 'true' } : null);
@@ -863,13 +1237,32 @@ export function BrowseDetail({ type }) {
     return [...featuredArt, ...featuredRest.filter(item => !seen.has(item.id))].slice(0, Math.max(featuredArt.length, Math.min(6, HERO_SLIDE_COUNT)));
   }, [featuredArt, featuredRest]);
   const { items: watchedItems } = useMediaList(type === 'studios' ? { ...studioFilters, sort: 'watched' } : null);
+  const personPage = type === 'performers';
+  const { items: personTitles } = useMediaList(personPage ? { ...filters, limit: 500 } : null);
+  const { total: watchedTotal } = useMediaList(personPage ? { ...filters, watched: 'watched', limit: 1 } : null);
+  const { total: favoriteTotal } = useMediaList(personPage ? { ...filters, favorite: 'true', limit: 1 } : null);
+  const insights = useMemo(() => {
+    const years = new Map();
+    const studiosSeen = new Map();
+    let rated = 0; let ratingSum = 0; let plays = 0;
+    personTitles.forEach(title => {
+      const year = Number((title.releaseDate || '').slice(0, 4)) || title.productionYear || 0;
+      if (year > 1900) years.set(year, (years.get(year) || 0) + 1);
+      if (title.studioName) studiosSeen.set(title.studioName, { id: title.studioId, name: title.studioName, count: (studiosSeen.get(title.studioName)?.count || 0) + 1 });
+      if (title.myRating > 0) { rated += 1; ratingSum += title.myRating; }
+      plays += title.watchCount || 0;
+    });
+    const span = [...years.keys()].sort((a, b) => a - b);
+    const byYear = span.length ? Array.from({ length: Math.min(span[span.length - 1] - span[0] + 1, 30) }, (_, i) => { const year = span[span.length - 1] - Math.min(span[span.length - 1] - span[0], 29) + i; return { year, count: years.get(year) || 0 }; }) : [];
+    return { byYear, studios: [...studiosSeen.values()].sort((a, b) => b.count - a.count).slice(0, 6), avgRating: rated ? ratingSum / rated / 2 : 0, plays };
+  }, [personTitles]);
   const { items: favoriteItems } = useMediaList(type === 'studios' ? { ...studioFilters, favorite: 'true' } : null);
   const loadEntity = React.useCallback(() => {
     const request = type === 'performers' ? getPerformer(id) : type === 'studios' ? getStudio(id) : type === 'categories' ? getCategories().then(result => (result.items || []).find(item => String(item.id) === String(id))) : getSeriesItem(id);
     return request.then(result => { setName(result?.name || ''); setEntity(result || null); return result; });
   }, [type, id]);
   useEffect(() => { let active = true; loadEntity().catch(() => { if (active) setEntity(null); }); return () => { active = false; }; }, [loadEntity]);
-  const countLabel = `${loading && !items.length ? '…' : total} ${total === 1 ? 'title' : 'titles'} in your collection`;
+  const collectionLabel = `${loading && !items.length ? '…' : total} ${total === 1 ? 'title' : 'titles'} in your collection`;
   const portrait = type === 'performers';
   async function toggleFavorite() {
     try {
@@ -880,12 +1273,21 @@ export function BrowseDetail({ type }) {
       toast({ title: 'Could not update favorite', description: err.message, tone: 'danger' });
     }
   }
+  async function toggleNotify() {
+    try {
+      const result = await setPerformerNotify(entity.id, !entity.notify);
+      setEntity(current => ({ ...current, notify: result.notify }));
+      toast({ title: result.notify ? 'We’ll tell you about new titles' : 'Notifications off', description: result.notify ? `New titles with ${entity.name} appear under the bell.` : undefined, tone: 'success' });
+    } catch (err) {
+      toast({ title: 'Could not update notifications', description: err.message, tone: 'danger' });
+    }
+  }
   return <div className={`rs-page rs-entity-page ${toneClass(`${type}:${id}`)}`}>
     {type === 'performers' ? <header className={`rs-performer-hero ${entity ? performerTheme(entity)['--pf-pattern'] : ''}`} style={entity ? performerTheme(entity) : undefined}>
       {entity?.profileImageId && <span className="rs-performer-hero-bg" style={{ backgroundImage: `url(${performerImageUrl(entity.id, entity.profileImageId)})` }} aria-hidden="true" />}
       <span className="rs-entity-portrait">{entity ? <DirectoryMark item={entity} index={0} type="performers" portrait /> : null}</span>
       <div className="rs-performer-hero-copy">
-        <p className="rs-eyebrow">PERFORMER / YOUR ARCHIVE</p>
+        <p className="rs-eyebrow">{terms.person} · In your library</p>
         <h1>{name || 'Loading…'}</h1>
         {!!entity?.aliases?.length && <p className="rs-performer-aka">aka {entity.aliases.slice(0, 4).join(', ')}</p>}
         <ul className="rs-hero-stats">
@@ -897,14 +1299,22 @@ export function BrowseDetail({ type }) {
         </ul>
         {entity && (entity.notes || entity.metadata?.bio) && <ExpandableBio text={entity.notes || entity.metadata.bio} skip={statLabels(entity.metadata)} />}
       </div>
-      {entity && <div className="rs-studio-hero-actions rs-performer-hero-actions">
+      {entity && <div className="rs-performer-hero-actions">
+        {total > 0 && <PlayButtons filters={listFilters} shuffleLabel={`Shuffle ${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`} />}
         <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
-        {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Settings</button>}
+        <button type="button" className={`rs-button rs-button-outline ${entity.notify ? 'is-favorite' : ''}`} aria-pressed={!!entity.notify} onClick={toggleNotify}>{entity.notify ? <BellRing size={17} /> : <Bell size={17} />} {entity.notify ? 'Notifying you about new titles' : 'Notify me about new titles'}</button>
+        {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Edit</button>}
       </div>}
-    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={countLabel} onSettings={isAdmin ? () => setSettingsOpen(true) : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
+      {entity && total > 0 && <dl className="rs-person-stats" aria-label="Your watching">
+        <div><dt>Watched</dt><dd>{watchedTotal.toLocaleString()} of {total.toLocaleString()}</dd></div>
+        <div><dt>Your plays</dt><dd>{insights.plays.toLocaleString()}</dd></div>
+        <div><dt>Favorites</dt><dd>{favoriteTotal.toLocaleString()}</dd></div>
+        <div><dt>Your avg rating</dt><dd>{insights.avgRating ? `★ ${insights.avgRating.toFixed(1)}` : '—'}</dd></div>
+      </dl>}
+    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} onSettings={isAdmin ? () => setSettingsOpen(true) : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
       {type === 'studios' && entity && entity.logoImageId && <span className="rs-studio-hero-logo"><DirectoryMark item={entity} index={0} type="studios" /></span>}
       {portrait && entity && <span className="rs-entity-portrait"><DirectoryMark item={entity} index={0} type="performers" portrait /></span>}
-      <div><p className="rs-eyebrow">{config.singular.toUpperCase()} / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{countLabel}</p>
+      <div><p className="rs-eyebrow">{config.singular.toUpperCase()} / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{collectionLabel}</p>
         {type === 'performers' && entity && (entity.notes || entity.metadata?.bio) && <p className="rs-performer-bio rs-entity-description">{entity.notes || entity.metadata.bio}</p>}
         {type === 'performers' && entity && <div className="rs-detail-actions">
           <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
@@ -919,49 +1329,37 @@ export function BrowseDetail({ type }) {
     {type === 'studios' && entity && <StudioSettings studioId={entity.id} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => { loadEntity(); refresh(); }} onSwitch={id => { setSettingsOpen(false); navigate(`/studios/${id}`); }} onDeleted={() => navigate('/studios')} />}
     {type === 'series' && entity && <SeriesSettings seriesId={entity.id} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => { loadEntity(); refresh(); }} onDeleted={() => navigate('/series')} />}
     <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length} retry={refresh} />
-    {isStudio && !!featuredItems.length && <HeroCarousel items={featuredItems} eyebrow={type === 'performers' ? `FEATURING ${(name || 'this performer').toUpperCase()}` : `FROM ${(name || 'this studio').toUpperCase()}`} exclude={type === 'performers' ? [name, ...(entity?.aliases || [])] : []} />}
+    {type === 'performers' && <StartHere titles={personTitles} name={name || terms.person.toLowerCase()} />}
+    {type === 'studios' && !!featuredItems.length && <HeroCarousel items={featuredItems} eyebrow={type === 'performers' ? `Featuring ${name || terms.person.toLowerCase()}` : `From ${name || terms.studio.toLowerCase()}`} exclude={type === 'performers' ? [name, ...(entity?.aliases || [])] : []} />}
     {type === 'studios' && <Shelf title="Most watched" eyebrow="Popular" items={watchedItems.filter(item => item.watchCount > 0)} />}
     {type === 'studios' && <Shelf title="Favorites" eyebrow="Saved" items={favoriteItems} />}
-    {(!!items.length || filtered) && <div className="rs-section-head rs-videos-head"><div><p className="rs-eyebrow">Library</p><h2>All videos</h2></div><div className="rs-title-controls">{total > 0 && <PlayButtons filters={listFilters} ordered={type === 'series'} />}<TitleFilters studios={type === 'studios' ? null : studios} studio={studio} onStudio={setStudio} sort={sort} onSort={setSort} seriesOrder={type === 'series'} performerOrder={type === 'performers'} /></div></div>}
+    {type === 'performers' && insights.byYear.length > 1 && <div className="rs-person-insights rs-person-years">
+      {insights.byYear.length > 1 && <section className="rs-panel rs-years" aria-labelledby="rs-years-title">
+        <h2 id="rs-years-title">Titles by year</h2>
+        <div className="rs-years-chart" role="img" aria-label={`Titles by year: ${insights.byYear.filter(y => y.count).map(y => `${y.year}: ${y.count}`).join(', ')}`}>
+          {insights.byYear.map(({ year, count }) => { const max = Math.max(...insights.byYear.map(y => y.count)); return <span key={year} className="rs-years-col"><em>{count || ''}</em><i style={{ height: `${count ? Math.max(6, count / max * 100) : 2}%` }} className={count === max ? 'is-top' : ''} /><small>{String(year).slice(-2) === '00' || insights.byYear.length <= 12 ? year : `’${String(year).slice(-2)}`}</small></span>; })}
+        </div>
+      </section>}
+    </div>}
+    {(!!items.length || filtered) && <div className="rs-section-head rs-videos-head"><div><p className="rs-eyebrow">Library</p><h2>All {total.toLocaleString()} {total === 1 ? terms.title.toLowerCase() : terms.titles.toLowerCase()}</h2></div><div className="rs-title-controls">{total > 0 && <PlayButtons filters={listFilters} ordered={type === 'series'} />}<TitleFilters studios={type === 'studios' ? null : studios} studio={studio} onStudio={setStudio} sort={sort} onSort={setSort} seriesOrder={type === 'series'} performerOrder={type === 'performers'} {...(type === 'performers' ? { watched: watchedFilter, onWatched: setWatchedFilter, kind: kindFilter, onKind: setKindFilter } : {})} /></div></div>}
     {!loading && !error && !items.length && filtered && <Status empty icon={SearchX} title="No matches found" message="Try another studio or sort order." />}
     {!!items.length && <VirtualWindow items={items} minColumn={minColumn} gapX={16} gapY={24} aspect={cards.aspect} extra={96} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <MediaCard item={item} index={index} exclude={type === 'performers' ? [name, ...(entity?.aliases || [])] : []} kicker={type === 'series' && item.seriesPosition != null ? [`No. ${item.seriesPosition}`, item.studioName].filter(Boolean).join(' · ') : undefined} showPlayCount={type === 'performers'} mostPlayed={type === 'performers' && sort === 'watched' && index === 0 && item.watchCount > 0} />} />}
     {loadingMore && <p className="rs-virtual-status">Loading more titles…</p>}
-    {type === 'performers' && !!similar.length && <section className="rs-shelf rs-similar-performers" aria-label="You might also like">
-      <div className="rs-section-head"><div><p className="rs-eyebrow">Suggested</p><h2>You might also like</h2></div><Link to="/performers">All performers <ArrowRight size={16} /></Link></div>
-      <div className="rs-shelf-track">{similar.map((person, index) => <PerformerCard key={person.id} item={person} index={index} note={person.sharedTitles ? `${person.sharedTitles} ${person.sharedTitles === 1 ? 'title' : 'titles'} together` : undefined} />)}</div>
-    </section>}
+    {type === 'performers' && (!!similar.length || insights.studios.length > 0) && <div className="rs-person-insights rs-person-side">
+      {!!similar.length && <section className="rs-panel rs-costars" aria-labelledby="rs-costars-title">
+        <h2 id="rs-costars-title">Often appears with</h2>
+        {similar.slice(0, 4).map(person => <Link key={person.id} to={`/performers/${person.id}`} className="rs-costar">
+          <span className="rs-costar-mark"><DirectoryMark item={person} index={0} type="performers" portrait /></span>
+          <strong>{person.name}</strong>
+          <small>{person.sharedTitles ? `${person.sharedTitles} ${person.sharedTitles === 1 ? 'title' : 'titles'} together` : countLabel(person.mediaCount || 0)}</small>
+        </Link>)}
+      </section>}
+      {!!insights.studios.length && <section className="rs-panel rs-person-studios" aria-labelledby="rs-person-studios-title">
+        <h2 id="rs-person-studios-title">{terms.studios}</h2>
+        {insights.studios.map(studio => <Link key={studio.name} to={studio.id ? `/studios/${studio.id}` : `/search?q=${encodeURIComponent(studio.name)}`} className="rs-bar-row"><span><strong>{studio.name}</strong><small>{plural(studio.count, 'title')}</small></span><i><b style={{ width: `${studio.count / insights.studios[0].count * 100}%` }} /></i></Link>)}
+      </section>}
+    </div>}
   </div>;
-}
-
-function AddToPlaylist({ mediaItemId }) {
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [playlists, setPlaylists] = useState([]);
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) getCollections().then(result => setPlaylists((result.items || []).filter(item => item.kind === 'MANUAL'))).catch(err => toast({ title: 'Could not load playlists', description: err.message, tone: 'danger' })); }, [open, toast]);
-  async function add(id, label) {
-    setBusy(true);
-    try { await addCollectionItem(id, mediaItemId); toast({ title: `Added to ${label}`, tone: 'success' }); setOpen(false); }
-    catch (err) { toast({ title: 'Could not add to playlist', description: err.message, tone: 'danger' }); }
-    finally { setBusy(false); }
-  }
-  async function create(event) {
-    event.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    try {
-      const result = await createCollection({ name: name.trim(), kind: 'MANUAL' });
-      await addCollectionItem(result.id, mediaItemId);
-      toast({ title: `Added to ${name.trim()}`, tone: 'success' });
-      setName('');
-      setOpen(false);
-    } catch (err) { toast({ title: 'Could not create playlist', description: err.message, tone: 'danger' }); }
-    finally { setBusy(false); }
-  }
-  return <><button className="rs-button rs-button-outline" onClick={() => setOpen(true)}><ListVideo size={17} /> Add to playlist</button>
-    <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Add to playlist</DialogTitle><DialogDescription>Choose a playlist or make a new one.</DialogDescription></DialogHeader><div className="rs-playlist-picker">{playlists.map(list => <button key={list.id} type="button" disabled={busy} onClick={() => add(list.id, list.name)}><ListVideo size={18} /><span><strong>{list.name}</strong><small>{list.mediaCount} titles</small></span><ArrowRight size={16} /></button>)}{!playlists.length && <p>No playlists yet. Create one below.</p>}</div><form className="rs-add-playlist-form" onSubmit={create}><Input aria-label="New playlist name" placeholder="New playlist name" value={name} onChange={event => setName(event.target.value)} /><Button type="submit" disabled={busy || !name.trim()}>Create & add</Button></form></DialogContent></Dialog>
-  </>;
 }
 
 function CreditImage({ src, studio }) {
@@ -974,7 +1372,7 @@ function DetailFacts({ item }) {
   const { terms, mode } = useLibrary();
   const cast = item.cast?.length ? item.cast : (item.performers || []).map(name => ({ name }));
   const crew = item.crew || [];
-  const personImage = person => person.profileImageId ? <CreditImage src={performerImageUrl(person.id)} /> : <span className="rs-cast-fallback rs-mono" style={monogram(person.name).style} aria-hidden="true">{monogram(person.name).initials}</span>;
+  const personImage = person => person.profileImageId ? <CreditImage src={performerImageUrl(person.id, person.profileImageId)} /> : <span className="rs-cast-fallback rs-mono" style={monogram(person.name).style} aria-hidden="true">{monogram(person.name).initials}</span>;
   const isEpisode = item.kind === 'episode';
   const search = value => `/search?q=${encodeURIComponent(value)}`;
   const chips = [
@@ -989,14 +1387,21 @@ function DetailFacts({ item }) {
     <h2>About this title</h2>
     {!!cast.length && <section className="rs-cast-block" aria-label={terms.cast}>
       <h3 className="rs-facts-label">{terms.cast}</h3>
-      <div className="rs-cast">{cast.map(person => <Link key={person.id || person.name} className="rs-credit rs-cast-person" to={person.id ? `/performers/${person.id}` : search(person.name)}>{personImage(person)}<span>{person.name}{person.character && <small className="rs-cast-character">{person.character}</small>}</span></Link>)}</div>
+      <div className="rs-cast rs-cast-grid">{cast.map(person => <Link key={person.id || person.name} className="rs-credit rs-cast-person" to={person.id ? `/performers/${person.id}` : search(person.name)}>{personImage(person)}<span>{person.name}{!person.character && person.mediaCount > 0 && <small className="rs-cast-character">{countLabel(person.mediaCount)} in library</small>}{person.character && <small className="rs-cast-character">{person.character}</small>}</span></Link>)}</div>
     </section>}
     {['director', 'writer'].map(job => { const people = crew.filter(c => c.job === job); return people.length > 0 && <section className="rs-cast-block" key={job} aria-label={job === 'director' ? terms.directors : 'Writers'}>
       <h3 className="rs-facts-label">{job === 'director' ? (people.length === 1 ? terms.director : terms.directors) : (people.length === 1 ? 'Writer' : 'Writers')}</h3>
-      <div className="rs-cast">{people.map(person => <Link key={`${job}:${person.id}`} className="rs-credit rs-cast-person" to={`/performers/${person.id}`}>{personImage(person)}<span>{person.name}</span></Link>)}</div>
+      <div className="rs-cast rs-cast-grid">{people.map(person => <Link key={`${job}:${person.id}`} className="rs-credit rs-cast-person" to={`/performers/${person.id}`}>{personImage(person)}<span>{person.name}</span></Link>)}</div>
     </section>; })}
+    {item.studioName && <section className="rs-cast-block" aria-label={terms.studio}>
+      <h3 className="rs-facts-label">{terms.studio}</h3>
+      {(() => {
+        const mark = item.studioLogoImageId ? <CreditImage studio src={studioImageUrl(item.studioId, item.studioLogoImageId)} /> : null;
+        const body = <>{mark || <span className="rs-studio-tile rs-mono" style={monogram(item.studioName).style} aria-hidden="true">{monogram(item.studioName).initials}</span>}<span><strong>{item.studioName}</strong><small>More from this {terms.studio.toLowerCase()}</small></span></>;
+        return item.studioId ? <Link className="rs-studio-credit" to={`/studios/${item.studioId}`}>{body}</Link> : <div className="rs-studio-credit">{body}</div>;
+      })()}
+    </section>}
     <dl className="rs-facts-grid">
-      {item.studioName && <div><dt>Studio</dt><dd>{item.studioId ? <Link className="rs-credit" to={`/studios/${item.studioId}`}>{item.studioLogoImageId && <CreditImage studio src={studioImageUrl(item.studioId)} />}<span>{item.studioName}</span></Link> : item.studioName}</dd></div>}
       {item.seriesName && <div><dt>{isEpisode ? terms.show : terms.series}</dt><dd>{item.seriesId ? <Link className="rs-credit" to={`/${isEpisode && mode === 'entertainment' ? 'shows' : 'series'}/${item.seriesId}`}><span>{item.seriesName}</span></Link> : item.seriesName}</dd></div>}
       {isEpisode && item.seasonNumber != null && <div><dt>{terms.episode}</dt><dd>{`${terms.season} ${item.seasonNumber}${item.episodeNumber != null ? ` · ${terms.episode} ${item.episodeNumber}` : ''}`}</dd></div>}
       {item.releaseDate && <div><dt>Released</dt><dd>{item.releaseDate.slice(0, 10)}</dd></div>}
@@ -1015,6 +1420,7 @@ export function MediaDetail({ isAdmin = false }) {
   const location = useLocation();
   const queue = useQueue();
   const [markers, setMarkers] = useState([]);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
   // Set when the person came here from the queue or a "play" button: start playing once the video is ready.
   const wantsAutoplay = useRef(false);
   // 'backdrop' shows the key art with the title over it; 'player' swaps in the video once playback starts.
@@ -1073,7 +1479,9 @@ export function MediaDetail({ isAdmin = false }) {
   useEffect(load, [load]);
   const [related, setRelated] = useState([]);
   const [studioMore, setStudioMore] = useState([]);
+  const [personMore, setPersonMore] = useState([]);
   const studioId = item?.studioId;
+  const leadPerson = (item?.cast || []).find(person => person.id);
   useEffect(() => { wantsAutoplay.current = Boolean(location.state?.autoplay); setStage(wantsAutoplay.current ? 'player' : 'backdrop'); }, [id, location.key]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setBackdropArt('loading'); }, [id]);
   // Rendered synchronously so play() and fullscreen still run inside the click that asked for them.
@@ -1097,6 +1505,12 @@ export function MediaDetail({ isAdmin = false }) {
     if (studioId) getMediaItems({ studioId, limit: 13, sort: 'random' }).then(r => live && setStudioMore((r.items || []).filter(m => String(m.id) !== String(id)).slice(0, 12))).catch(() => {});
     return () => { live = false; };
   }, [id, studioId]);
+  useEffect(() => {
+    let live = true;
+    setPersonMore([]);
+    if (leadPerson?.id) getMediaItems({ performerId: leadPerson.id, limit: 13, sort: 'random' }).then(r => live && setPersonMore((r.items || []).filter(m => String(m.id) !== String(id)).slice(0, 12))).catch(() => {});
+    return () => { live = false; };
+  }, [id, leadPerson?.id]);
   async function toggleFavorite() { try { const updated = await updateMediaItem(id, { favorite: !item.favorite }); setItem(updated); toast({ title: updated.favorite ? 'Added to favorites' : 'Removed from favorites', tone: 'success' }); } catch (err) { toast({ title: 'Could not update favorite', description: err.message, tone: 'danger' }); } }
   async function setRating(stars) { try { const updated = await updateMediaItem(id, { rating: ratingFromStars(stars) }); setItem(updated); } catch (err) { toast({ title: 'Could not update rating', description: err.message, tone: 'danger' }); } }
   async function toggleWatchLater() {
@@ -1119,6 +1533,14 @@ export function MediaDetail({ isAdmin = false }) {
     video.currentTime = seconds;
     video.scrollIntoView({ behavior: 'smooth', block: 'center' });
     video.play().catch(() => {});
+  }
+  async function markCurrentMoment() {
+    const seconds = Math.round((playerRef.current?.currentTime || 0) * 10) / 10;
+    try {
+      const marker = await createMarker(item.id, seconds, '');
+      setMarkers(current => [...current, marker]);
+      toast({ title: `Marker added at ${formatClock(seconds)}`, tone: 'success' });
+    } catch (err) { toast({ title: 'Could not add marker', description: err.message, tone: 'danger' }); }
   }
   function fullscreen() { toggleFullscreen(frameRef.current, playerRef.current); }
   function togglePlayPause() {
@@ -1179,6 +1601,17 @@ export function MediaDetail({ isAdmin = false }) {
     const video = playerRef.current;
     if (!video) return;
     showPlayer();
+    video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    video.play().catch(() => {});
+    if (window.matchMedia('(max-width: 720px)').matches && !isPlayerFullscreen(frameRef.current, video)) fullscreen();
+  }
+  function playFromStart() {
+    const video = playerRef.current;
+    if (!video) return;
+    resumeAt.current = 0;
+    showPlayer();
+    video.currentTime = 0;
+    lastSaved.current = 0;
     video.scrollIntoView({ behavior: 'smooth', block: 'center' });
     video.play().catch(() => {});
     if (window.matchMedia('(max-width: 720px)').matches && !isPlayerFullscreen(frameRef.current, video)) fullscreen();
@@ -1267,31 +1700,69 @@ export function MediaDetail({ isAdmin = false }) {
   const showBackdrop = stage === 'backdrop' && (backdropArt === 'loading' || backdropArt === 'wide');
   // Portrait videos (reels) get a tall player with the details beside it.
   const portrait = videoShape ? videoShape === 'portrait' : !!item.reelDetected;
-  return <div className={`rs-detail rs-watch-page ${toneClass(item.id)} ${showBackdrop ? 'is-backdrop' : 'is-playing'}${portrait ? ' is-portrait' : ''}`}>
+  const file = bestFile(item);
+  const quality = qualityLabel(file);
+  const year = item.releaseDate?.slice(0, 4) || (item.productionYear ? String(item.productionYear) : '');
+  const seriesLine = item.seriesName ? `${item.seriesName}${item.kind === 'episode' && item.seasonNumber != null ? ` · S${item.seasonNumber}${item.episodeNumber != null ? ` E${item.episodeNumber}` : ''}` : item.seriesPosition != null ? ` · Part ${item.seriesPosition}` : ''}` : '';
+  const queueBeside = !item.seriesId && queue.items.length > 0;
+  return <div className={`rs-detail rs-watch-page ${showBackdrop ? 'is-backdrop' : 'is-playing'}${portrait ? ' is-portrait' : ''}`}>
     <div className="rs-tv-backdrop" aria-hidden="true"><img key={`${item.id}-${useProviderBackdrop ? 'backdrop' : 'poster'}`} src={artworkUrl(item.id, useProviderBackdrop ? 'backdrop' : 'poster', useProviderBackdrop ? item.backdropImageId : item.posterImageId)} alt="" className={backdropArt === 'wide' || backdropArt === 'tall' ? 'is-loaded' : ''} onLoad={event => { const { naturalWidth: w, naturalHeight: h } = event.currentTarget; if (useProviderBackdrop && w / h < 1.3) { setFailedBackdropId(item.backdropImageId); setBackdropArt('loading'); } else setBackdropArt(w / h >= 1.3 ? 'wide' : 'tall'); }} onError={() => { if (useProviderBackdrop) { setFailedBackdropId(item.backdropImageId); setBackdropArt('loading'); } else setBackdropArt('none'); }} /></div>
-    <section className="rs-detail-hero">
-      <section className="rs-player-section" aria-label="Video player">
-        {available ? <>
-          <div className="rs-player-frame" ref={frameRef} tabIndex={0} onKeyDown={onFrameKeyDown} aria-label="Video player. Space plays or pauses, F toggles fullscreen, M mutes, arrow keys seek, J and L skip ten seconds, C toggles subtitles, N and P change title, less-than and greater-than change speed.">
-          <video ref={playerRef} preload="metadata" playsInline x-webkit-airplay="allow" poster={artworkUrl(item.id, 'poster', item.posterImageId)} onLoadedMetadata={onLoadedMetadata} onCanPlay={onCanPlay} onPlay={() => { wantsAutoplay.current = false; resumePlayback.current = false; setStage('player'); setPlayerError(false); ensureSession(); session.current.lastTime = playerRef.current?.currentTime ?? null; }} onSeeked={() => { session.current.lastTime = playerRef.current?.currentTime ?? null; onCanPlay(); }} onTimeUpdate={onTimeUpdate} onPause={() => saveProgress(false)} onEnded={onEnded}>{trackSel.subtitles.filter(track => !track.burn).map(track => <track key={`${id}-${track.id}`} id={`rs-sub-${track.id}`} kind="subtitles" src={subtitleUrl(id, track.id)} srcLang={track.language || undefined} label={track.label} />)}</video>
-          {upNext && nextEpisode && <UpNext item={nextEpisode} onPlay={() => goTo(nextEpisode)} onCancel={() => setUpNext(false)} />}
-          {playerError && <div className="rs-player-error" role="alert">Playback stopped. <button type="button" onClick={() => { setPlayerError(false); retryPlayback(); }}>Retry from here</button>{playbackMode === 'direct' && <><button type="button" onClick={() => { setPlayerError(false); skipAhead(30); }}>Skip 30s ahead</button><button type="button" onClick={() => { setPlayerError(false); setTranscode(true); }}>Play transcoded</button></>}</div>}
-          {skips > 0 && <span className="rs-player-notice" role="status">Jumped {lastSkip || 2}s past a spot that would not play ({skips} {skips === 1 ? 'time' : 'times'})</span>}
-          <PlayerControls videoRef={playerRef} frameRef={frameRef} mediaId={item.id} markers={markers} enabled={available} onToggleFullscreen={fullscreen} isFullscreen={isFullscreen} onPrev={previousInQueue() ? () => goTo(previousInQueue()) : null} onNext={nextInQueue() ? () => goTo(nextInQueue()) : nextEpisode ? () => goTo(nextEpisode) : null} nextLabel={nextInQueue() ? 'Next in queue' : 'Next episode'} trackInfo={trackSel.subtitles.length || trackSel.audio.length > 1 ? { audio: trackSel.audio, audioIndex: trackSel.audioIndex, onAudio: chooseAudio, subtitles: trackSel.subtitles, subtitleId: trackSel.subtitleId, onSubtitle: trackSel.setSubtitleId } : undefined} playbackRate={playbackRate} onRateChange={changeRate} onMarkWatched={markWatched} transcode={{ on: playbackMode === 'hls', disabled: !playbackMode || audioForcesTranscode, forced: audioForcesTranscode, quality: transcodeQuality, qualities: TRANSCODE_QUALITIES, onToggle: () => { setPlayerError(false); setTranscode(playbackMode !== 'hls'); }, onQuality: value => { setPlayerError(false); setTranscodeQuality(value); } }} />
+    <div className="rs-watch-grid">
+      <div className="rs-watch-main">
+        <section className="rs-player-section" aria-label="Video player">
+          {available ? <>
+            <div className="rs-player-frame" ref={frameRef} tabIndex={0} onKeyDown={onFrameKeyDown} aria-label="Video player. Space plays or pauses, F toggles fullscreen, M mutes, arrow keys seek, J and L skip ten seconds, C toggles subtitles, N and P change title, less-than and greater-than change speed.">
+            <video ref={playerRef} preload="metadata" playsInline x-webkit-airplay="allow" poster={artworkUrl(item.id, useProviderBackdrop ? 'backdrop' : 'poster', useProviderBackdrop ? item.backdropImageId : item.posterImageId)} onLoadedMetadata={onLoadedMetadata} onCanPlay={onCanPlay} onPlay={() => { wantsAutoplay.current = false; resumePlayback.current = false; setStage('player'); setPlayerError(false); ensureSession(); session.current.lastTime = playerRef.current?.currentTime ?? null; }} onSeeked={() => { session.current.lastTime = playerRef.current?.currentTime ?? null; onCanPlay(); }} onTimeUpdate={onTimeUpdate} onPause={() => saveProgress(false)} onEnded={onEnded}>{trackSel.subtitles.filter(track => !track.burn).map(track => <track key={`${id}-${track.id}`} id={`rs-sub-${track.id}`} kind="subtitles" src={subtitleUrl(id, track.id)} srcLang={track.language || undefined} label={track.label} />)}</video>
+            {stage === 'backdrop' && <button type="button" className="rs-player-start" onClick={play} aria-label={resumable ? 'Resume' : 'Play'}><Play size={34} fill="currentColor" /></button>}
+            {stage === 'backdrop' && resumable && <div className="rs-player-resume"><div><span>Resume from {formatClock(item.positionSeconds)}</span><span>{formatClock(item.durationSeconds)}</span></div><span className="rs-player-resume-bar"><i style={{ width: `${Math.min(100, item.positionSeconds / item.durationSeconds * 100)}%` }} />{markers.map(marker => <b key={marker.id} style={{ left: `${Math.min(100, marker.seconds / item.durationSeconds * 100)}%` }} />)}</span></div>}
+            {upNext && nextEpisode && <UpNext item={nextEpisode} onPlay={() => goTo(nextEpisode)} onCancel={() => setUpNext(false)} />}
+            {playerError && <div className="rs-player-error" role="alert">Playback stopped. <button type="button" onClick={() => { setPlayerError(false); retryPlayback(); }}>Retry from here</button>{playbackMode === 'direct' && <><button type="button" onClick={() => { setPlayerError(false); skipAhead(30); }}>Skip 30s ahead</button><button type="button" onClick={() => { setPlayerError(false); setTranscode(true); }}>Play transcoded</button></>}</div>}
+            {skips > 0 && <span className="rs-player-notice" role="status">Jumped {lastSkip || 2}s past a spot that would not play ({skips} {skips === 1 ? 'time' : 'times'})</span>}
+            <PlayerControls idle={stage === 'backdrop'} videoRef={playerRef} frameRef={frameRef} mediaId={item.id} markers={markers} enabled={available} onAddMarker={markCurrentMoment} onToggleFullscreen={fullscreen} isFullscreen={isFullscreen} onPrev={previousInQueue() ? () => goTo(previousInQueue()) : null} onNext={nextInQueue() ? () => goTo(nextInQueue()) : nextEpisode ? () => goTo(nextEpisode) : null} nextLabel={nextInQueue() ? 'Next in queue' : 'Next episode'} trackInfo={trackSel.subtitles.length || trackSel.audio.length > 1 ? { audio: trackSel.audio, audioIndex: trackSel.audioIndex, onAudio: chooseAudio, subtitles: trackSel.subtitles, subtitleId: trackSel.subtitleId, onSubtitle: trackSel.setSubtitleId } : undefined} playbackRate={playbackRate} onRateChange={changeRate} onMarkWatched={markWatched} title={title} kicker={seriesLine} badge={[quality, playbackMode === 'hls' ? 'Transcoding' : 'Direct play'].filter(Boolean).join(' · ')} queueItems={queue.items} onQueueGo={goTo} transcode={{ on: playbackMode === 'hls', disabled: !playbackMode || audioForcesTranscode, forced: audioForcesTranscode, quality: transcodeQuality, qualities: TRANSCODE_QUALITIES, onToggle: () => { setPlayerError(false); setTranscode(playbackMode !== 'hls'); }, onQuality: value => { setPlayerError(false); setTranscodeQuality(value); } }} />
+            </div>
+          </> : <div className="rs-player-offline"><Artwork item={item} preferBackdrop /><span>This file isn’t available right now.</span></div>}
+        </section>
+        <div className={`rs-detail-intro ${titleLengthClass}`}>
+          <p className="rs-detail-kicker">{seriesLine || item.studioName || 'Your library'}</p>
+          <h1 title={item.title}>{title}</h1>
+          {item.title !== displayTitle(item) && <p className="rs-detail-original">{item.title}</p>}
+          <div className="rs-detail-meta">
+            {year && <span>{year}</span>}
+            {item.durationSeconds > 0 && <span>{formatRuntime(item.durationSeconds)}</span>}
+            {quality && <span className="rs-spec">{quality}</span>}
+            {item.files?.length > 1 && <span className="rs-spec">{item.files.length} versions</span>}
+            {item.studioName && item.studioId && <Link to={`/studios/${item.studioId}`}>{item.studioName}</Link>}
           </div>
-        </> : <div className="rs-player-offline"><Artwork item={item} /><span>This file isn’t available right now.</span></div>}
-      </section>
-      <div className={`rs-detail-intro ${titleLengthClass}`}><p className="rs-eyebrow">{item.studioName || 'Your library'}</p><h1 title={item.title}>{title}</h1><p className="rs-detail-original">{item.title !== displayTitle(item) ? item.title : ''}</p><div className="rs-detail-meta">{[item.releaseDate?.slice(0, 4), item.seriesName, item.durationSeconds ? `${Math.round(item.durationSeconds / 60)} min` : null].filter(Boolean).map(value => <span key={value}>{value}</span>)}</div><div className="rs-detail-rating"><span>Your rating</span><StarRating value={starsFromRating(item.myRating)} onChange={setRating} size={20} />{item.ratingCount > 0 && <span className="rs-rating-avg" title="Average of all users' ratings">Average {(item.rating / 2).toFixed(1)} · {item.ratingCount} {item.ratingCount === 1 ? 'rating' : 'ratings'}</span>}</div>{item.description && <p className="rs-detail-description">{item.description}</p>}{resumable && showBackdrop && <div className="rs-tv-progress"><span><i style={{ width: `${Math.min(100, item.positionSeconds / item.durationSeconds * 100)}%` }} /></span>{Math.max(1, Math.round((item.durationSeconds - item.positionSeconds) / 60))} min left</div>}<div className="rs-detail-actions"><button className="rs-button rs-button-primary" onClick={play} disabled={!available}><Play size={17} fill="currentColor" /> {!available ? 'File offline' : resumable ? 'Resume' : 'Play'}</button><button className={`rs-button rs-button-outline ${item.favorite ? 'is-favorite' : ''}`} onClick={toggleFavorite}><Heart size={17} fill={item.favorite ? 'currentColor' : 'none'} /> {item.favorite ? 'Favorited' : 'Favorite'}</button><button type="button" className={`rs-button rs-button-outline ${item.watchLater ? 'is-favorite' : ''}`} aria-pressed={!!item.watchLater} onClick={toggleWatchLater}>{item.watchLater ? <BookmarkCheck size={17} /> : <Bookmark size={17} />} {item.watchLater ? 'In Watch later' : 'Watch later'}</button><button type="button" className="rs-button rs-button-outline" onClick={addToQueue}><ListPlus size={17} /> Add to queue</button><AddToPlaylist mediaItemId={item.id} />{isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Settings</button>}</div></div>
-    </section>
-    <SeriesShelf item={item} nextEpisode={nextEpisode} />
+                    <div className="rs-detail-actions">
+            <button type="button" className="rs-button rs-button-primary rs-button-lg" onClick={play} disabled={!available}><Play size={18} fill="currentColor" /> {!available ? 'File offline' : resumable ? `Resume · ${Math.max(1, Math.round((item.durationSeconds - item.positionSeconds) / 60))} min left` : 'Play'}</button>
+            {resumable && <button type="button" className="rs-button rs-button-outline rs-button-lg" onClick={playFromStart}>Play from start</button>}
+            <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.favorite ? 'is-favorite' : ''}`} aria-pressed={!!item.favorite} onClick={toggleFavorite}><Heart size={18} fill={item.favorite ? 'currentColor' : 'none'} /> {item.favorite ? 'Favorited' : 'Favorite'}</button>
+            <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.watchLater ? 'is-favorite' : ''}`} aria-pressed={!!item.watchLater} onClick={toggleWatchLater}>{item.watchLater ? <BookmarkCheck size={18} /> : <Bookmark size={18} />} {item.watchLater ? 'In Watch later' : 'Watch later'}</button>
+            <button type="button" className="rs-button rs-button-outline rs-button-lg" onClick={() => setPlaylistOpen(true)}><ListPlus size={18} /> Add to playlist</button>
+            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rs-button rs-button-outline rs-button-lg rs-button-icon rs-detail-more" aria-label="More"><Ellipsis size={18} /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={addToQueue}><ListPlus size={16} /> Add to queue</DropdownMenuItem><DropdownMenuItem onSelect={() => setPlaylistOpen(true)}><ListVideo size={16} /> Add to playlist</DropdownMenuItem><DropdownMenuItem onSelect={markWatched}><Check size={16} /> Mark as watched</DropdownMenuItem>{isAdmin && <DropdownMenuItem onSelect={() => setSettingsOpen(true)}><Settings2 size={16} /> Settings</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>
+            <AddToPlaylist mediaItemId={item.id} open={playlistOpen} onOpenChange={setPlaylistOpen} />
+          </div>
+          {item.description && <p className="rs-detail-description">{item.description}</p>}
+          <div className="rs-rating-card">
+            <div className="rs-detail-rating"><span>Your rating</span><StarRating value={starsFromRating(item.myRating)} onChange={setRating} size={22} /></div>
+            {item.ratingCount > 0 && <div className="rs-rating-stat"><span>Average</span><strong className="rs-rating-avg" title="Average of all users' ratings">{(item.rating / 2).toFixed(1)} · {item.ratingCount} {item.ratingCount === 1 ? 'rating' : 'ratings'}</strong></div>}
+            {item.watchCount > 0 && <div className="rs-rating-stat"><span>You watched</span><strong>{item.watchCount} {item.watchCount === 1 ? 'time' : 'times'}{item.lastWatchedAt ? ` · last ${new Date(item.lastWatchedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</strong></div>}
+            {item.dateAdded && <div className="rs-rating-stat"><span>Added</span><strong>{new Date(item.dateAdded).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</strong></div>}
+          </div>
+        </div>
+      </div>
+      {item.seriesId ? <SeriesSideList item={item} nextEpisode={nextEpisode} /> : queueBeside ? <aside className="rs-watch-side"><QueuePanel currentId={item.id} /></aside> : <SimilarSideList items={related} />}
+    </div>
+    {available && <Markers mediaId={item.id} videoRef={playerRef} markers={markers} onChange={setMarkers} onJump={jumpTo} />}
+    {!queueBeside && queue.items.length > 0 && <QueuePanel currentId={item.id} />}
     <div className="rs-detail-lower">
-      <QueuePanel currentId={item.id} />
-      {available && <Markers mediaId={item.id} videoRef={playerRef} markers={markers} onChange={setMarkers} onJump={jumpTo} />}
       <DetailFacts item={item} />
+      <TechnicalCard item={item} />
     </div>
     <div className="rs-detail-shelves">
-      <Shelf eyebrow="SUGGESTED" title="Similar titles" items={related} />
-      <Shelf eyebrow={item.studioName || 'STUDIO'} title="More from this studio" items={studioMore} />
+      {leadPerson && <Shelf eyebrow="More with" title={leadPerson.name} href={`/performers/${leadPerson.id}`} items={personMore} />}
+      <Shelf eyebrow={`More from ${item.studioName || 'this studio'}`} title={item.studioName || 'More from this studio'} href={item.studioId ? `/studios/${item.studioId}` : undefined} items={studioMore} />
+      <Shelf eyebrow="Suggested" title="Similar titles" items={related} />
     </div>
     <MediaSettings mediaItemId={item.id} canDelete={isAdmin} onDeleted={() => { setSettingsOpen(false); navigate('/library'); }} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => getMediaItem(id).then(setItem).catch(() => {})} />
   </div>;

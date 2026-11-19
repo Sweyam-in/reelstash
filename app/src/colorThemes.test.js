@@ -14,7 +14,7 @@ test('the library offers at least five distinct color themes', () => {
   }
 });
 
-test('an unknown theme falls back to Grove', () => {
-  assert.equal(colorThemeById('nope').id, 'grove');
+test('an unknown theme falls back to Marquee', () => {
+  assert.equal(colorThemeById('nope').id, 'reelstash');
   assert.equal(colorThemeById('iris').name, 'Iris');
 });

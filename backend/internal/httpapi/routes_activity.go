@@ -31,6 +31,8 @@ func (a *API) mountActivity(r chi.Router) {
 	})
 	r.Get("/events", a.handleEvents)
 	r.Get("/recommendations/home", a.homeRecommendations)
+	r.Get("/home/summary", a.homeSummary)
+	r.Get("/home/series", a.homeSeriesProgress)
 	r.Get("/activity", a.watchActivity)
 	r.Route("/files", func(r chi.Router) {
 		r.Get("/", a.listFiles)

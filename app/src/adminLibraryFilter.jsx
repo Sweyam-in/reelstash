@@ -1,6 +1,6 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { ChevronDown, LibraryBig } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@spatika/react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui';
 import { getLibraries } from './api';
 import { adminTerms } from './adminTerms';
 import { HeaderScope } from './adminHeader';

@@ -1,69 +1,74 @@
-# General
+# macOS
 .DS_Store
-.env
 
-# IDEs
+# Secrets and local environment. Examples stay tracked.
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+!.env.*.example
+
+# Editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Go
+*.exe
+*.exe~
+*.dll
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-.pytest_cache/
-.venv/
-venv/
-env/
-ENV/
+*.dylib
+*.test
+*.out
+coverage.out
+coverage.html
+*.coverprofile
+go.work
+go.work.sum
+backend/server
+backend/reelstash-server
 
-# Node
+# Node / Vite (app and admin)
 node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+.eslintcache
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-ui/build/
+pnpm-debug.log*
 
-# Source folders that the Python patterns above would otherwise hide
-!backend/internal/downloads/
-!ui/src/pages/downloads/
-
-# Application Data
+# Local library data: posters, thumbnails, databases
 data/
 backend/data/
-/dist/
 
-# Retired native project: keep any local build files and signing material out of Git
+# Snapcraft build trees. snap/snapcraft.yaml stays tracked.
+*.snap
+/snap/parts/
+/snap/stage/
+/snap/prime/
+
+# Python bytecode from locally run plugin bundles
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Retired native project
 /mobile/
 
-# Private production deployment (kept out of the open-source repo)
+# Private production deployment
 prod-deploy/
 scripts/build-push-ghcr.sh
 scripts/build-push-ghcr.env
 scripts/build-push-ghcr.env.example
-
-# Local environment
-.env.local
-
 
 # AI agent / assistant files
 .claude/

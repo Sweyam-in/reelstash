@@ -1,0 +1,10 @@
+/* Brand: teal leads, marigold is the secondary accent for ratings, favorites and highlights. */
+[data-rs-theme="light"] { --ui-marigold: #B5780A; }
+.rs-star-rating, .rs-star-rating button.is-filled { color: var(--ui-marigold); }
+.rs-button-outline.is-favorite svg { color: var(--ui-marigold); }
+.rs-portrait-heart, .rs-portrait-fav { color: var(--ui-marigold); }
+.rs-start-why { color: var(--ui-marigold); }
+.rs-marker-chip svg { color: var(--ui-marigold); }
+.rs-tech-badges .is-top { background: color-mix(in srgb, var(--ui-marigold) 16%, transparent); color: var(--ui-marigold); }
+.rs-person-stats dd .rs-star, .rs-hero-stats .rs-star { color: var(--ui-marigold); }
+.rs-detail-kicker, .rs-performer-hero-copy .rs-eyebrow { color: var(--ui-marigold); }

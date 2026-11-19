@@ -133,6 +133,10 @@ func (a *API) mountAdmin(r chi.Router) {
 			r.Post("/transfer", a.startFileTransfer)
 			r.Post("/upload", a.uploadFiles)
 		})
+		r.Route("/dvds", func(r chi.Router) {
+			r.Get("/", a.listDVDs)
+			r.Post("/convert", a.convertDVDs)
+		})
 		r.Route("/duplicates", func(r chi.Router) {
 			r.Get("/scan", a.duplicateScanStatus)
 			r.Post("/scan", a.startDuplicateScan)

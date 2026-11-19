@@ -223,6 +223,18 @@ func TestLibraryAccessScoping(t *testing.T) {
 	}
 }
 
+func TestPerformerGalleryRespectsLibraryAccess(t *testing.T) {
+	f := newLibraryFixture(t)
+	visible := "/api/performers/" + strconv.FormatInt(f.movieActor, 10) + "/photos"
+	private := "/api/performers/" + strconv.FormatInt(f.privPerf, 10) + "/photos"
+	if rec := f.get(t, f.userCookie, visible); rec.Code != http.StatusOK {
+		t.Fatalf("visible gallery: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := f.get(t, f.userCookie, private); rec.Code != http.StatusNotFound {
+		t.Fatalf("private gallery: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestLibraryFileBrowserRoots(t *testing.T) {
 	f := newLibraryFixture(t)
 	disk := strconv.FormatInt(f.disk, 10)

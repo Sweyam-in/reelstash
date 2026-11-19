@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Delete, Lock, LogOut, X } from 'lucide-react';
-import { Button, useToast } from '@spatika/react';
+import { Button, useToast } from '../ui';
 import { APP_LOCKED_EVENT, getAppLockStatus, lockApp as lockAppRequest, logout, removeAppLockPin, setAppLockIdleMinutes, setAppLockPin, verifyAppLockPin } from '../api';
 
 const STATUS_POLL_MS = 30_000;

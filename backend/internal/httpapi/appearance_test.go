@@ -11,7 +11,7 @@ func TestAppearanceTheme(t *testing.T) {
 	h := newIsolatedHarness(t, config.Config{}, nil)
 
 	out := h.jsonBody(h.do(&h.admin, "GET", "/api/admin/appearance", nil), http.StatusOK)
-	if out["colorTheme"] != "grove" {
+	if out["colorTheme"] != "reelstash" {
 		t.Fatalf("default theme = %v", out["colorTheme"])
 	}
 	themes, _ := out["themes"].([]any)
@@ -20,7 +20,7 @@ func TestAppearanceTheme(t *testing.T) {
 	}
 
 	public := h.jsonBody(h.do(nil, "GET", "/auth/config", nil), http.StatusOK)
-	if public["colorTheme"] != "grove" {
+	if public["colorTheme"] != "reelstash" {
 		t.Fatalf("public theme = %v", public["colorTheme"])
 	}
 

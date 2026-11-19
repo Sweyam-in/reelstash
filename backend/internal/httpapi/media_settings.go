@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"reelstash/backend/internal/namer"
 	"reelstash/backend/internal/provider"
 	"reelstash/backend/internal/scanner"
 )
@@ -114,6 +115,35 @@ func (a *API) applyMediaMatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
+	if k := applied.Kept; k != nil {
+		// The match rewrote the NFO from the provider; bring the kept fields back there too.
+		fields := scanner.NFOFields{}
+		for _, f := range k.Fields {
+			switch f {
+			case "title":
+				fields.Title = k.Title
+			case "description":
+				desc := ""
+				if k.Description != nil {
+					desc = *k.Description
+				}
+				fields.Plot = &desc
+			case "studio":
+				name := ""
+				if k.StudioName != nil {
+					name = *k.StudioName
+				}
+				fields.Studio = &name
+			case "categories":
+				names := append([]string{}, k.CategoryNames...)
+				fields.Genres = &names
+			case "performers":
+				names := append([]string{}, k.PerformerNames...)
+				fields.Performers = &names
+			}
+		}
+		a.writeItemNFOs(r.Context(), id, fields, false)
+	}
 	writeJSON(w, http.StatusOK, applied)
 }
 
@@ -161,6 +191,8 @@ type updateMediaMetadataRequest struct {
 	Studio      *string         `json:"studio"` // "" clears the studio
 	Categories  *[]string       `json:"categories"`
 	Performers  *[]performerRef `json:"performers"`
+	// KeepEdits true locks the fields in this edit so a later match keeps them; false clears every lock.
+	KeepEdits *bool `json:"keepEdits"`
 }
 
 // updateMediaMetadata edits a title's title, description, studio, categories
@@ -300,6 +332,21 @@ func (a *API) updateMediaMetadata(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to save changes")
 		return
 	}
+	if req.KeepEdits != nil {
+		locks := []string{}
+		if *req.KeepEdits {
+			current, err := namer.LockedFields(ctx, a.DB, id)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to save kept fields")
+				return
+			}
+			locks = append(current, req.editedFields()...)
+		}
+		if err := namer.SetLockedFields(ctx, a.DB, id, locks); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save kept fields")
+			return
+		}
+	}
 
 	fields := scanner.NFOFields{Title: req.Title, Plot: req.Description, Studio: studioName}
 	if req.Categories != nil {
@@ -310,6 +357,27 @@ func (a *API) updateMediaMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, failed := a.writeItemNFOs(ctx, id, fields, true)
 	writeJSON(w, http.StatusOK, map[string]any{"nfoUpdated": updated, "nfoFailed": failed})
+}
+
+// editedFields names the lockable fields this edit touches.
+func (req updateMediaMetadataRequest) editedFields() []string {
+	out := []string{}
+	if req.Title != nil {
+		out = append(out, "title")
+	}
+	if req.Description != nil {
+		out = append(out, "description")
+	}
+	if req.Studio != nil {
+		out = append(out, "studio")
+	}
+	if req.Categories != nil {
+		out = append(out, "categories")
+	}
+	if req.Performers != nil {
+		out = append(out, "performers")
+	}
+	return out
 }
 
 // resolvePerformer finds the performer for a ref: by id, else by name or alias,

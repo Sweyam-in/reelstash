@@ -107,7 +107,7 @@ func (s *Scheduler) fire(ctx context.Context, d dueRow) {
 		}
 		for _, id := range ids {
 			_, err := EnqueueLibraryScan(ctx, s.DB, s.Jobs, id)
-			if err != nil && !errors.Is(err, ErrScanRunning) && !errors.Is(err, ErrOrganizing) && !errors.Is(err, ErrLibraryEmpty) {
+			if err != nil && !errors.Is(err, ErrScanRunning) && !errors.Is(err, ErrOrganizing) && !errors.Is(err, ErrConverting) && !errors.Is(err, ErrLibraryEmpty) {
 				s.alert(ctx, "Scheduled scan could not start", fmt.Sprintf("library %d: %v", id, err))
 			}
 		}

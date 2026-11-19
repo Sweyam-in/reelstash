@@ -3,7 +3,7 @@ import { modeTerms } from './libraryModes.js';
 // The admin console covers every library at once, so its words have to fit both modes:
 // "People" for cast, crew and performers, "Collections / series", "Categories & genres".
 // Once an admin narrows a page to one library it switches to that library's own words
-// (Actors / Collections / Genres for Entertainment, Performers / Series / Categories for Private).
+// (Actors / Collections / Genres for Entertainment, People / Series / Categories for Private).
 const NEUTRAL = {
   person: 'Person', people: 'People',
   studio: 'Studio', studios: 'Studios',

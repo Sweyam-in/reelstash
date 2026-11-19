@@ -1,0 +1,146 @@
+/* Final polish for the media library. Kept separate from the shared admin/files styles. */
+.rs-app-media {
+  --rs-gutter: clamp(1rem, 2.5vw, 2.25rem);
+  --rs-card-radius: 1rem;
+  --rs-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+.rs-app-media .spk-app-shell {
+  background: var(--ui-canvas);
+}
+
+/* The navigation and content sit as two calm, rounded surfaces with a narrow channel between them. */
+@media (min-width: 1024px) {
+  .rs-app-media .spk-app-sidebar {
+    padding: .75rem 0 .75rem .75rem;
+  }
+
+  .rs-app-media .spk-sidebar {
+    height: 100%;
+    padding: .75rem .65rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--ui-text-primary) 6%, transparent);
+    border-radius: 1.25rem;
+    background: color-mix(in srgb, var(--ui-surface) 58%, var(--ui-canvas));
+  }
+
+  .rs-app-media .spk-app-main,
+  .rs-app-media .spk-app-shell[data-layout="inset"] .spk-app-main {
+    width: auto;
+    height: calc(100dvh - 1.5rem);
+    min-height: 0;
+    margin: .75rem .75rem .75rem .65rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid color-mix(in srgb, var(--ui-text-primary) 7%, transparent);
+    border-radius: 1.25rem;
+    background: var(--ui-canvas);
+    box-shadow: 0 16px 48px -36px rgb(0 0 0 / .58);
+  }
+
+  .rs-app-media .spk-app-main > .spk-topbar {
+    border-radius: 1.2rem 1.2rem 0 0;
+  }
+}
+
+.rs-app-media .spk-sidebar-body {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ui-text-primary) 18%, transparent) transparent;
+}
+
+.rs-app-media .spk-nav-section-title {
+  padding-inline: .7rem;
+  color: var(--ui-text-tertiary);
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+
+.rs-app-media .spk-sidebar-body .spk-nav-item {
+  min-height: 2.55rem;
+  border: 1px solid transparent;
+  border-radius: .85rem;
+  transition: background-color .18s var(--rs-ease), border-color .18s var(--rs-ease), color .18s var(--rs-ease), transform .18s var(--rs-ease);
+}
+
+.rs-app-media .spk-sidebar-body .spk-nav-item:hover {
+  transform: translateX(2px);
+  background: color-mix(in srgb, var(--tone) 8%, var(--ui-surface));
+}
+
+.rs-app-media .spk-sidebar-body .spk-nav-item:is([data-active='true'], [aria-current='page'], .is-active) {
+  border-color: color-mix(in srgb, var(--tone) 22%, transparent);
+  background: color-mix(in srgb, var(--tone) 12%, var(--ui-surface));
+}
+
+.rs-app-media .spk-nav-item > svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 1.8;
+}
+
+.rs-app-media .spk-sidebar-footer {
+  padding-top: .65rem;
+  border-color: color-mix(in srgb, var(--ui-text-primary) 7%, transparent);
+}
+
+.rs-app-media .rs-media-surface { min-height: 100%; }
+.rs-app-media .rs-watch-page > .rs-markers { margin-top: 1.25rem; }
+.rs-app-media .rs-detail-more { min-width: 2.6rem; }
+
+/* Artwork remains the focus; card motion is small and does not change the grid geometry. */
+.rs-app-media .rs-media-card {
+  border-radius: var(--rs-card-radius);
+  transition: transform .2s var(--rs-ease);
+}
+
+.rs-app-media .rs-media-card-art {
+  border-radius: var(--rs-card-radius);
+  box-shadow: 0 8px 22px -18px rgb(0 0 0 / .7);
+  transition: box-shadow .2s var(--rs-ease);
+}
+
+.rs-app-media .rs-media-card:hover { transform: translateY(-3px); }
+.rs-app-media .rs-media-card:is(:hover, :focus-visible) .rs-media-card-art {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 65%, transparent), 0 16px 30px -20px rgb(0 0 0 / .82);
+}
+
+.rs-app-media .rs-card-copy h3 {
+  line-height: 1.35;
+  letter-spacing: -.015em;
+}
+
+.rs-app-media :is(.rs-header-search, .rs-header-search input) { min-height: 2.45rem; }
+.rs-app-media .rs-header-search {
+  border-color: color-mix(in srgb, var(--ui-text-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--ui-surface) 72%, transparent);
+}
+
+.rs-app-media :is(.rs-button, .spk-btn) { border-radius: 999px; }
+.rs-app-media :is(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--ui-focus, var(--ui-accent-text));
+  outline-offset: 3px;
+}
+
+@media (max-width: 1023px) {
+  .rs-app-media .spk-app-main { background: var(--ui-canvas); }
+  .rs-app-media .spk-topbar { padding-inline: clamp(.75rem, 3vw, 1.25rem); }
+}
+
+@media (max-width: 640px) {
+  .rs-app-media { --rs-gutter: 1rem; }
+  .rs-app-media .rs-page { padding-inline: var(--rs-gutter); }
+  .rs-app-media .rs-home-body { gap: 1.8rem; }
+  .rs-app-media .rs-shelf-track .rs-media-card { flex-basis: clamp(8.25rem, 38vw, 10rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-app-media *, .rs-app-media *::before, .rs-app-media *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .rs-app-media .spk-sidebar-body .spk-nav-item:hover,
+  .rs-app-media .rs-media-card:hover { transform: none; }
+}

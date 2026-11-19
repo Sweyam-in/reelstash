@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useToast } from '@spatika/react';
+import { useToast } from '../ui';
 import { Unlink } from 'lucide-react';
 import { getPerformerMatchJob, getProviders, matchPerformerProvider, performerImageUrl, searchPerformerProviders } from '../api';
 

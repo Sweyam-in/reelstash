@@ -562,6 +562,15 @@ CREATE TABLE IF NOT EXISTS "performer_favorite" (
   CONSTRAINT "performer_favorite_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_user(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "performer_notify" (
+  "user_id" INTEGER NOT NULL,
+  "performer_id" INTEGER NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "performer_notify_performer_id_fkey" FOREIGN KEY (performer_id) REFERENCES performer(id) ON DELETE CASCADE,
+  CONSTRAINT "performer_notify_pkey" PRIMARY KEY (user_id, performer_id),
+  CONSTRAINT "performer_notify_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_user(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS "performer_photo" (
   "performer_id" INTEGER NOT NULL,
   "artwork_id" INTEGER NOT NULL,
@@ -958,3 +967,28 @@ BEGIN
     ORDER BY mf.available DESC, mf.library_id IS NULL, mf.id LIMIT 1
   ) WHERE id = OLD.media_item_id;
 END;
+
+CREATE TABLE IF NOT EXISTS "dvd_disc" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "storage_location_id" INTEGER NOT NULL,
+  "relative_path" TEXT NOT NULL,
+  "title_count" INTEGER NOT NULL DEFAULT 0,
+  "file_size" INTEGER NOT NULL DEFAULT 0,
+  "available" INTEGER NOT NULL DEFAULT 1,
+  "missing_since" TIMESTAMP,
+  "last_seen_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (storage_location_id, relative_path),
+  CONSTRAINT "dvd_disc_storage_location_id_fkey" FOREIGN KEY (storage_location_id) REFERENCES storage_location(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS dvd_disc_storage ON "dvd_disc" (storage_location_id);
+
+CREATE TABLE IF NOT EXISTS "media_item_field_lock" (
+  "media_item_id" INTEGER NOT NULL,
+  "field" TEXT NOT NULL,
+  "locked_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "media_item_field_lock_field_check" CHECK ((field IN ('title', 'description', 'studio', 'categories', 'performers'))),
+  CONSTRAINT "media_item_field_lock_media_item_id_fkey" FOREIGN KEY (media_item_id) REFERENCES media_item(id) ON DELETE CASCADE,
+  CONSTRAINT "media_item_field_lock_pkey" PRIMARY KEY (media_item_id, field)
+);

@@ -2,7 +2,7 @@ import { LibraryScope, useAdminLibrary } from '../adminLibraryFilter';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { mediaHref } from '../appLinks';
-import { Badge, Button, EmptyState, Spinner, useToast } from '@spatika/react';
+import { Badge, Button, EmptyState, Spinner, useToast } from '../ui';
 import { PageHeader } from '../adminHeader';
 import { CircleStop, Copy } from 'lucide-react';
 import { cancelDuplicateScan, dismissDuplicate, getDuplicateScan, getDuplicates, getTrash, keepDuplicate, restoreTrash, startDuplicateScan } from '../api';

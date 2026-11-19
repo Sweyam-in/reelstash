@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SettingsDialog from '../components/SettingsDialog';
+import { monogram } from '../components/Monogram';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
   FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
-} from '@spatika/react';
-import { Combine, ImageUp, Search, Trash2, X } from 'lucide-react';
+} from '../ui';
+import { Combine, ImageUp, Search, Trash2, X, FileText, Film, Image as ImageIcon, Sparkles } from 'lucide-react';
 import {
   deleteStudio, deleteStudioImage, getMediaItems, getStudio, getStudioDuplicates, getStudioMatchJob, getStudios, linkStudioMedia, matchStudioProvider, mergeStudio,
   searchStudioProviders, studioImageUrl, unlinkStudioMedia, unmatchStudioProvider, updateStudio, uploadStudioImage,
@@ -29,12 +31,14 @@ function titleMeta(item, studioId) {
   return parts.length ? <small>{parts.join(' · ')}</small> : null;
 }
 
-function DetailsTab({ studio, onSaved, onDeleted }) {
+function DetailsTab({ studio, onSaved, onDeleted, onState }) {
   const { toast } = useToast();
   const [name, setName] = useState(studio.name || '');
   const [website, setWebsite] = useState(studio.website || '');
   const [description, setDescription] = useState(studio.description || '');
   const [busy, setBusy] = useState(false);
+  useEffect(() => () => onState?.({ dirty: false, busy: false }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onState?.({ dirty: name !== (studio.name || '') || website !== (studio.website || '') || description !== (studio.description || ''), busy }); }, [name, website, description, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function save(event) {
@@ -63,12 +67,12 @@ function DetailsTab({ studio, onSaved, onDeleted }) {
     }
   }
 
-  return <form className="rs-pm-form" onSubmit={save}>
+  return <form id="rs-pm-details" className="rs-pm-form" onSubmit={save}>
     <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
     <FormField label="Website"><Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="Optional" /></FormField>
     <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" /></FormField>
     <p className="rs-pm-muted">Renaming also rewrites the studio in the NFO file of each of its titles.</p>
-    <div><Button type="submit" disabled={busy || !name.trim()}>Save changes</Button></div>
+    <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
     <div className="rs-pm-danger">
       <p className="rs-eyebrow">Delete studio</p>
       <p className="rs-pm-muted">Its videos are left without a studio. Video files and NFO files are not touched.</p>
@@ -339,28 +343,27 @@ export default function StudioSettings({ studioId, open, onOpenChange, onChanged
     else load().catch(() => {});
   }
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent size="xl" className="rs-pm is-studio">
-      <DialogHeader><DialogTitle>{studio ? `${studio.name} · settings` : 'Studio settings'}</DialogTitle></DialogHeader>
-      <DialogBody>
-        {!studio && <p className="rs-pm-muted">Loading…</p>}
-        {studio && <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="match">Metadata Providers</TabsTrigger>
-            <TabsTrigger value="logo">Logo</TabsTrigger>
-            <TabsTrigger value="videos">Videos</TabsTrigger>
-            <TabsTrigger value="merge">Duplicates &amp; merge</TabsTrigger>
-          </TabsList>
-          <div className="rs-pm-panel">
-            <TabsContent value="details"><DetailsTab key={`${studio.id}-${studio.name}`} studio={studio} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
-            <TabsContent value="match"><PerformerMatch kind="studio" performer={studio} onUpdated={changed} imageUrl={studioImageUrl} searchRemote={searchStudioProviders} matchRemote={matchStudioProvider} loadJob={getStudioMatchJob} imageField="logoImageId" unmatchRemote={unmatchStudioProvider} allowMarkWrong={false} /></TabsContent>
-            <TabsContent value="logo"><LogoTab studio={studio} onChanged={changed} /></TabsContent>
-            <TabsContent value="videos"><VideosTab studio={studio} onChanged={changed} /></TabsContent>
-            <TabsContent value="merge"><MergeTab studio={studio} onMerged={merged} /></TabsContent>
-          </div>
-        </Tabs>}
-      </DialogBody>
-    </DialogContent>
-  </Dialog>;
+  const [detailsState, setDetailsState] = useState({ dirty: false, busy: false });
+  useEffect(() => { if (!open) setDetailsState({ dirty: false, busy: false }); }, [open]);
+  const tabs = [
+    { value: 'details', label: 'Details', icon: FileText },
+    { value: 'match', label: 'Metadata providers', icon: Sparkles },
+    { value: 'logo', label: 'Logo', icon: ImageIcon },
+    { value: 'videos', label: 'Videos', icon: Film },
+    { value: 'merge', label: 'Duplicates & merge', icon: Combine },
+  ];
+  return <SettingsDialog open={open} onOpenChange={onOpenChange} className="is-studio" loading={!studio}
+    lead={studio ? (studio.logoImageId ? <img src={studioImageUrl(studio.id, studio.logoImageId)} alt="" /> : <span className="rs-mono" style={monogram(studio.name).style}>{monogram(studio.name).initials}</span>) : null}
+    kicker="Studio settings" title={studio ? (studio.name) : 'Loading…'}
+    tabs={tabs} tab={tab} onTab={setTab}
+    dirty={detailsState.dirty} onSave={() => document.getElementById('rs-pm-details')?.requestSubmit()} canSave={detailsState.dirty} saving={detailsState.busy} showSave={tab === 'details'}>
+    {studio && <>
+        <TabsContent value="details"><DetailsTab onState={setDetailsState} key={`${studio.id}-${studio.name}`} studio={studio} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
+        <TabsContent value="match"><PerformerMatch kind="studio" performer={studio} onUpdated={changed} imageUrl={studioImageUrl} searchRemote={searchStudioProviders} matchRemote={matchStudioProvider} loadJob={getStudioMatchJob} imageField="logoImageId" unmatchRemote={unmatchStudioProvider} allowMarkWrong={false} /></TabsContent>
+        <TabsContent value="logo"><LogoTab studio={studio} onChanged={changed} /></TabsContent>
+        <TabsContent value="videos"><VideosTab studio={studio} onChanged={changed} /></TabsContent>
+        <TabsContent value="merge"><MergeTab studio={studio} onMerged={merged} /></TabsContent>
+
+    </>}
+  </SettingsDialog>;
 }

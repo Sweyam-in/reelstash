@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, Check, ChevronRight, ClipboardPaste, Copy, Download, ExternalLink,
@@ -247,6 +248,8 @@ export default function FileBrowserPage({ canAdmin = false, locations = [], onOp
   const [revision, setRevision] = useState(0);
   const [contextMenu, setContextMenu] = useState(null);
   const [sortMenu, setSortMenu] = useState(false);
+  const sortButtonRef = useRef(null);
+  const [sortMenuPosition, setSortMenuPosition] = useState(null);
   const [dropTarget, setDropTarget] = useState('');
   const [dropActive, setDropActive] = useState(false);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -547,9 +550,24 @@ export default function FileBrowserPage({ canAdmin = false, locations = [], onOp
 
   useEffect(() => {
     if (!sortMenu) return undefined;
-    const close = event => { if (!event.target.closest?.('.rs-fm-sortwrap')) setSortMenu(false); };
+    const close = event => { if (!event.target.closest?.('.rs-fm-sortwrap, .rs-fm-sortmenu')) setSortMenu(false); };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
+  }, [sortMenu]);
+
+  useEffect(() => {
+    if (!sortMenu) return undefined;
+    const positionMenu = () => {
+      const rect = sortButtonRef.current?.getBoundingClientRect();
+      if (rect) setSortMenuPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    positionMenu();
+    window.addEventListener('resize', positionMenu);
+    window.addEventListener('scroll', positionMenu, true);
+    return () => {
+      window.removeEventListener('resize', positionMenu);
+      window.removeEventListener('scroll', positionMenu, true);
+    };
   }, [sortMenu]);
 
   function openContextMenu(event, file) {
@@ -665,11 +683,11 @@ export default function FileBrowserPage({ canAdmin = false, locations = [], onOp
       </>}
       <span className="rs-fm-tool-fill" />
       <div className="rs-fm-sortwrap">
-        <button type="button" className="rs-fm-tool" aria-expanded={sortMenu} onClick={() => setSortMenu(open => !open)}><ArrowUpDown size={16} /><span>{sortLabel}</span></button>
-        {sortMenu && <div className="rs-file-menu rs-fm-sortmenu" role="menu">
+        <button ref={sortButtonRef} type="button" className="rs-fm-tool" aria-expanded={sortMenu} onClick={() => setSortMenu(open => !open)}><ArrowUpDown size={16} /><span>{sortLabel}</span></button>
+        {sortMenu && sortMenuPosition && createPortal(<div className="rs-file-menu rs-fm-sortmenu" role="menu" style={{ top: sortMenuPosition.top, right: sortMenuPosition.right }}>
           {SORT_COLUMNS.map(([key, label]) => <button type="button" role="menuitemradio" aria-checked={sort.key === key} key={key} onClick={() => { chrome.sortBy(key); setSortMenu(false); }}>
             {sort.key === key ? <SortArrow size={15} /> : <span className="rs-file-menu-gap" />}{label}</button>)}
-        </div>}
+        </div>, document.body)}
       </div>
       <div className="rs-fm-seg" role="group" aria-label="View">
         <button type="button" aria-pressed={view === 'list'} aria-label="List view" title="List view" onClick={() => chrome.setView('list')}><List size={16} /></button>

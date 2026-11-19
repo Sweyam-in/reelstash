@@ -9,7 +9,7 @@ import (
 // Ids must match COLOR_THEMES in ui/src/colorThemes.js.
 const mediaColorThemeSetting = "media_color_theme"
 
-var mediaColorThemeIDs = []string{"grove", "lagoon", "ember", "iris", "aurora"}
+var mediaColorThemeIDs = []string{"reelstash", "marquee", "grove", "lagoon", "ember", "iris", "aurora"}
 
 func validMediaColorTheme(id string) bool {
 	for _, known := range mediaColorThemeIDs {

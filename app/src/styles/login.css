@@ -1,0 +1,20 @@
+/* Sign-in screen and the "loading" splash before the session is known. */
+.auth-loading { min-height: 100vh; display: grid; place-items: center; background: var(--ui-canvas); color: var(--ui-text-secondary); font-family: var(--ui-font-sans); }
+.login-screen { position: relative; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; box-sizing: border-box; overflow: hidden; color: var(--ui-text-primary);
+  background: radial-gradient(60% 50% at 75% 10%, color-mix(in srgb, var(--rs-palette-accent) 18%, transparent), transparent 70%), radial-gradient(50% 40% at 10% 90%, rgba(122, 184, 255, .10), transparent 70%), var(--ui-canvas); }
+.login-content { position: relative; width: min(100%, 420px); display: flex; flex-direction: column; }
+.login-brand { display: flex; align-items: center; gap: 12px; font: 700 22px/1 var(--ui-font-display); letter-spacing: -.01em; color: var(--ui-text-primary); }
+.login-brand img { width: 40px; height: 40px; border-radius: 10px; }
+.login-subtitle { margin: 10px 0 24px; font-size: 15px; color: var(--ui-text-secondary); }
+.login-card { padding: 28px; border-radius: 22px; background: var(--ui-surface-raised); border: 1px solid var(--ui-border-strong); box-shadow: var(--ui-shadow-lg); }
+.login-form { display: flex; flex-direction: column; gap: 14px; }
+.login-form + .login-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ui-border); }
+.login-form h1 { margin: 0; font: 700 clamp(28px, 6vw, 34px)/1.1 var(--ui-font-display); letter-spacing: -.02em; }
+.login-form-inline { flex-direction: row; flex-wrap: wrap; align-items: flex-end; }
+.login-form-inline > * { flex: 1 1 160px; }
+.login-eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ui-accent-text); }
+.login-or { text-align: center; color: var(--ui-text-tertiary); }
+.login-message { margin: -4px 0 4px; font-size: 14px; line-height: 1.5; color: var(--ui-text-secondary); }
+.login-form .rs-btn { width: 100%; }
+.login-denied { align-items: flex-start; }
+.login-denied-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--ui-danger-bg); color: var(--ui-danger-text); }

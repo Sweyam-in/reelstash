@@ -48,6 +48,10 @@ func TestReelsListPortraitVideosOfSelectedLibrary(t *testing.T) {
 			t.Fatalf("%s video listed as a reel", name)
 		}
 	}
+	videos := itemIDs(t, f.get(t, f.adminCookie, "/api/media?reels=false&limit=100", "X-Library", header))
+	if !videos[wide] || !videos[mixed] || videos[vertical] || videos[rotated] || videos[square] {
+		t.Fatalf("videos filter did not return landscape videos only: %v", videos)
+	}
 	// Reels stay in the library as well.
 	if all := itemIDs(t, f.get(t, f.adminCookie, "/api/media?limit=200", "X-Library", header)); !all[vertical] || !all[wide] {
 		t.Fatalf("library listing lost titles: %v", all)
@@ -76,6 +80,10 @@ func TestReelsListPortraitVideosOfSelectedLibrary(t *testing.T) {
 	ids = itemIDs(t, f.get(t, f.adminCookie, "/api/media?reels=true&limit=100", "X-Library", header))
 	if !ids[wide] || ids[vertical] {
 		t.Fatalf("overrides ignored: %v", ids)
+	}
+	videos = itemIDs(t, f.get(t, f.adminCookie, "/api/media?reels=false&limit=100", "X-Library", header))
+	if !videos[wide] || videos[vertical] {
+		t.Fatalf("videos filter did not use actual video shape: %v", videos)
 	}
 	setReel(vertical, "null")
 	if !itemIDs(t, f.get(t, f.adminCookie, "/api/media?reels=true&limit=100", "X-Library", header))[vertical] {

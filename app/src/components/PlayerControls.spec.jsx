@@ -25,19 +25,27 @@ describe('PlayerControls track menu', () => {
   it('lists the server’s audio and subtitle tracks with the current ones checked', async () => {
     setup();
     await openMenu();
+    expect(screen.getByRole('menuitem', { name: /Subtitles/ })).toHaveTextContent('English');
+    expect(screen.getByRole('menuitem', { name: /Audio/ })).toHaveTextContent('Japanese · AAC Stereo');
+    await userEvent.click(screen.getByRole('menuitem', { name: /Subtitles/ }));
     expect(screen.getByRole('menuitemradio', { name: 'English', checked: true })).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: 'Spanish', checked: false })).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: 'Off', checked: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Back to settings' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Audio/ }));
     expect(screen.getByRole('menuitemradio', { name: 'Japanese · AAC Stereo', checked: true })).toBeInTheDocument();
   });
 
   it('switches subtitles, turns them off, and changes audio', async () => {
     const { trackInfo } = setup();
     await openMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: /Subtitles/ }));
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Spanish' }));
     expect(trackInfo.onSubtitle).toHaveBeenCalledWith('x1');
+    await userEvent.click(screen.getByRole('menuitem', { name: /Subtitles/ }));
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Off' }));
     expect(trackInfo.onSubtitle).toHaveBeenCalledWith(null);
+    await userEvent.click(screen.getByRole('menuitem', { name: /Audio/ }));
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'English · AAC Stereo' }));
     expect(trackInfo.onAudio).toHaveBeenCalledWith(1);
   });
@@ -45,8 +53,17 @@ describe('PlayerControls track menu', () => {
   it('hides the audio choice when there is only one track', async () => {
     setup({ trackInfo: { audio: [{ index: 0, label: 'English' }], audioIndex: 0, onAudio: vi.fn(), subtitles: [], subtitleId: null, onSubtitle: vi.fn() } });
     await openMenu();
-    expect(screen.queryByText('Audio')).not.toBeInTheDocument();
-    expect(screen.queryByText('Subtitles')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Audio/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Subtitles/ })).not.toBeInTheDocument();
+  });
+
+  it('shows the title bar, the next marker and a sleep timer row', async () => {
+    setup({ title: 'Dunes of the South', kicker: 'The Long Coast · Ch. 5', badge: '4K · Direct play', markers: [{ id: 1, seconds: 980, title: 'Sandstorm time-lapse' }] });
+    expect(screen.getByText('Dunes of the South')).toBeInTheDocument();
+    expect(screen.getByText('4K · Direct play')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next marker: Sandstorm time-lapse · 16:20/ })).toBeInTheDocument();
+    await openMenu();
+    expect(screen.getByRole('menuitem', { name: /Sleep timer/ })).toHaveTextContent('Off');
   });
 
   it('labels the next button for the episode case', () => {

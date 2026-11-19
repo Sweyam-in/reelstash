@@ -1,0 +1,126 @@
+/* ReelStash design tokens. Dark is the default; [data-rs-theme="light"] swaps the surfaces.
+   The accent follows the admin's colour theme (colorThemes.js paints --rs-palette-*). */
+
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/space-grotesk/wght.css';
+
+:root {
+  --ui-font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ui-font-display: 'Space Grotesk Variable', 'Space Grotesk', var(--ui-font-sans);
+  --ui-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ui-radius-xs: 6px;
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 22px;
+  --ui-radius-pill: 999px;
+
+  --ui-space-gutter: clamp(16px, 3vw, 40px);
+  --ui-topbar-h: 72px;
+  --ui-sidebar-w: 248px;
+  --ui-tabbar-h: 64px;
+  --ui-ease: cubic-bezier(.2, .8, .2, 1);
+  --ui-dur: 180ms;
+
+  --rs-palette-accent: #55C7B0;
+  --rs-palette-accent-text: #A9EBDC;
+  --rs-palette-accent-light: #1F7A69;
+  --rs-palette-accent-text-light: #17604F;
+  --rs-brand: linear-gradient(120deg, #55C7B0 0%, #F2B544 100%);
+  --rs-marigold: #F2B544;
+}
+
+:root, .rs-theme, [data-rs-theme] {
+  color-scheme: dark;
+  --ui-canvas: #070D0C;
+  --ui-sidebar: #0A1311;
+  --ui-surface: #0E1A18;
+  --ui-surface-raised: #132421;
+  --ui-surface-overlay: #112220;
+  --ui-surface-sunken: #0A1412;
+  --ui-surface-subtle: #162B27;
+  --ui-surface-hover: #1D3933;
+  --ui-border: #1E3430;
+  --ui-border-subtle: #162B27;
+  --ui-border-strong: #2A4A44;
+  --ui-text-primary: #F3F4F6;
+  --ui-text-secondary: #9DB5AF;
+  --ui-text-tertiary: #7F9892;
+  --ui-text-faint: #667D78;
+  --ui-accent: var(--rs-palette-accent);
+  --ui-accent-text: var(--rs-palette-accent-text);
+  --ui-accent-fg: #06231E;
+  --ui-marigold: var(--rs-marigold, #F2B544);
+  --ui-accent-subtle: color-mix(in srgb, var(--ui-accent) 13%, transparent);
+  --ui-accent-border: color-mix(in srgb, var(--ui-accent) 50%, transparent);
+  --ui-accent-hover: color-mix(in srgb, var(--ui-accent) 88%, white);
+  --ui-info: #7AB8FF;
+  --ui-info-text: #A9D0FF;
+  --ui-info-fg: #06121F;
+  --ui-success: #7FD8A6;
+  --ui-success-text: #A9E9C4;
+  --ui-warning: #F5C330;
+  --ui-warning-text: #F7D58F;
+  --ui-danger: #FF6B6B;
+  --ui-danger-text: #FFB3B3;
+  --ui-danger-bg: rgba(255, 107, 107, .08);
+  --ui-danger-border: rgba(255, 107, 107, .4);
+  --ui-hover: rgba(255, 255, 255, .06);
+  --ui-press: rgba(255, 255, 255, .1);
+  --ui-scrim: rgba(5, 6, 8, .72);
+  --ui-glass: rgba(12, 13, 17, .82);
+  --ui-on-media: #F3F4F6;
+  --ui-focus: color-mix(in srgb, var(--ui-accent) 70%, white);
+  --ui-shadow-sm: 0 2px 8px rgba(0, 0, 0, .3);
+  --ui-shadow-md: 0 12px 32px rgba(0, 0, 0, .45);
+  --ui-shadow-lg: 0 30px 80px rgba(0, 0, 0, .6);
+  --ui-art-veil: rgba(10, 11, 14, .75);
+}
+
+[data-rs-theme="light"] {
+  color-scheme: light;
+  --ui-canvas: #F6F5F2;
+  --ui-sidebar: #EFEDE8;
+  --ui-surface: #FFFFFF;
+  --ui-surface-raised: #FFFFFF;
+  --ui-surface-overlay: #FFFFFF;
+  --ui-surface-sunken: #F1EFEA;
+  --ui-surface-subtle: #ECEAE4;
+  --ui-surface-hover: #E6E3DC;
+  --ui-border: #E3E0D9;
+  --ui-border-subtle: #ECEAE4;
+  --ui-border-strong: #CFCBC2;
+  --ui-text-primary: #15161A;
+  --ui-text-secondary: #545A66;
+  --ui-text-tertiary: #646A75;
+  --ui-text-faint: #8A8F98;
+  --ui-accent: var(--rs-palette-accent);
+  --ui-accent-text: var(--rs-palette-accent-light);
+  --ui-accent-subtle: color-mix(in srgb, var(--rs-palette-accent) 16%, white);
+  --ui-accent-border: color-mix(in srgb, var(--rs-palette-accent) 55%, white);
+  --ui-info: #2F6FB8;
+  --ui-info-text: #1F558F;
+  --ui-info-fg: #FFFFFF;
+  --ui-success: #1F8A55;
+  --ui-success-text: #176B42;
+  --ui-warning-text: #7A4F00;
+  --ui-danger: #C93636;
+  --ui-danger-text: #A82727;
+  --ui-danger-bg: rgba(201, 54, 54, .07);
+  --ui-danger-border: rgba(201, 54, 54, .35);
+  --ui-hover: rgba(0, 0, 0, .05);
+  --ui-press: rgba(0, 0, 0, .08);
+  --ui-scrim: rgba(20, 20, 24, .45);
+  --ui-glass: rgba(246, 245, 242, .86);
+  --ui-shadow-sm: 0 1px 4px rgba(20, 20, 24, .08);
+  --ui-shadow-md: 0 10px 28px rgba(20, 20, 24, .12);
+  --ui-shadow-lg: 0 24px 64px rgba(20, 20, 24, .18);
+}
+
+html, body { background: var(--ui-canvas, #0A0B0E); }
+body { margin: 0; font-family: var(--ui-font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.rs-theme { color: var(--ui-text-primary); font-family: var(--ui-font-sans); }
+html.rs-scroll-locked, html.rs-scroll-locked body { overflow: hidden; }
+:where(.rs-theme) :focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { :root { --ui-dur: 0ms; } *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; } }

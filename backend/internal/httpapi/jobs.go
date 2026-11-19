@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"reelstash/backend/internal/scanner"
 	"reelstash/backend/internal/schedule"
 )
 
@@ -245,6 +246,11 @@ func (a *API) startJobWith(ctx context.Context, kind string, storageLocationID i
 		payload["storageLocationId"] = storageLocationID
 		if kind == "ORGANIZE" {
 			payload["dryRun"] = false
+			if converting, err := dvdConvertActive(ctx, a.DB); err != nil {
+				return 0, http.StatusInternalServerError, "failed to check for a DVD conversion"
+			} else if converting {
+				return 0, http.StatusConflict, "DVD videos are being converted to MP4; organize once that finishes"
+			}
 			// A scan walking the disk while files move would see each one
 			// vanish and reappear as a new title.
 			var scanning bool
@@ -320,7 +326,7 @@ func (a *API) startLibraryJob(r *http.Request, kind string, libraryID int64) (jo
 	case "SCAN":
 		ids, err := schedule.EnqueueLibraryScan(ctx, a.DB, a.Jobs, libraryID)
 		switch {
-		case errors.Is(err, schedule.ErrScanRunning), errors.Is(err, schedule.ErrOrganizing):
+		case errors.Is(err, schedule.ErrScanRunning), errors.Is(err, schedule.ErrOrganizing), errors.Is(err, schedule.ErrConverting):
 			return nil, http.StatusConflict, err.Error()
 		case errors.Is(err, schedule.ErrLibraryEmpty):
 			return nil, http.StatusBadRequest, err.Error()
@@ -422,6 +428,10 @@ func (a *API) retryBackgroundJob(w http.ResponseWriter, r *http.Request) {
 		} else {
 			newID, st, msg = a.startJobWith(r.Context(), kind, p.StorageLocationID, map[string]any{"libraryId": p.LibraryID})
 		}
+	case kind == scanner.DVDConvertJobKind:
+		var parsed scanner.DVDConvertPayload
+		_ = json.Unmarshal(payload, &parsed)
+		newID, st, msg = a.enqueueDVDConvert(r.Context(), parsed.Items)
 	case kind == FileTransferJobKind:
 		// Re-run the same paste; items it already finished are skipped.
 		if a.Jobs == nil {

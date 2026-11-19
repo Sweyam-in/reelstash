@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, FormField, Input } from '@spatika/react';
+import { Alert, Button, Card, FormField, Input } from '../ui';
 import { ShieldX } from 'lucide-react';
 import { getAuthConfig, localLogin, nativeLogin, pluginLoginUrl, pluginPasswordLogin, setupAdmin } from '../api';
 import { paintColorTheme } from '../colorThemes';

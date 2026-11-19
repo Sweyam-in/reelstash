@@ -333,6 +333,9 @@ export const startFileTransfer = ({ storageLocationId, destStorageLocationId = s
   post('/api/admin/files/transfer', { ...rest, storageLocationId: Number(storageLocationId), destStorageLocationId: Number(destStorageLocationId) });
 export const createFileDir = (storageLocationId, path, name) =>
   post('/api/admin/files/dir', { storageLocationId: Number(storageLocationId), path, name });
+// DVDs a library scan has noticed. Conversion is a separate step.
+export const getDVDs = () => get('/api/admin/dvds');
+export const convertDVDs = ids => post('/api/admin/dvds/convert', { ids: ids.map(id => Number(id)) });
 
 // Upload uses XHR (not the fetch-based `request` helper) so we can report
 // progress for large media files.

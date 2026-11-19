@@ -321,7 +321,7 @@ func (s *Service) queueScans(ctx context.Context) error {
 	}
 	for _, id := range libraries {
 		_, err := schedule.EnqueueLibraryScan(ctx, s.DB, s.Runner, id)
-		if errors.Is(err, schedule.ErrScanRunning) || errors.Is(err, schedule.ErrOrganizing) {
+		if errors.Is(err, schedule.ErrScanRunning) || errors.Is(err, schedule.ErrOrganizing) || errors.Is(err, schedule.ErrConverting) {
 			continue // try again next round
 		}
 		msg := ""

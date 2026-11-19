@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Heart, Info, Pause, Play, Shuffle, Sparkles, Smartphone, Volume2, VolumeX } from 'lucide-react';
-import { useToast } from '@spatika/react';
-import { artworkUrl, getMediaItems, updateMediaItem, updatePlayback } from '../api';
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Clock3, Ellipsis, Heart, Info, ListPlus, Pause, Play, Smartphone, Volume2, VolumeX } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, useToast } from '../ui';
+import { addWatchLater, artworkUrl, getMediaItems, removeWatchLater, updateMediaItem, updatePlayback } from '../api';
+import AddToPlaylist from '../components/AddToPlaylist';
+import { formatClock } from '../playerUtils';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { useAdaptiveSource } from './hooks/useAdaptiveSource';
-import '../reels.css';
+
 
 // Reels: the selected library's portrait videos (the server detects them from the probed frame size
 // and rotation), one at a time in a vertical player. Scroll, swipe or use the arrow keys to move
@@ -15,9 +17,25 @@ const PAGE_SIZE = 20;
 const LOAD_AHEAD = 5; // fetch the next page this many reels before the end
 const MUTED_KEY = 'reelstash.reels.muted';
 const SORTS = [
-  { value: 'shuffle', label: 'Shuffle', icon: Shuffle },
-  { value: 'newest', label: 'Newest', icon: Sparkles },
+  { value: 'shuffle', label: 'Shuffle' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'unwatched', label: 'Not watched' },
+  { value: 'favorites', label: 'Favorites' },
 ];
+
+// What each order asks the server for, on top of reels=true.
+const orderParams = (sort, seed) => ({
+  ...(sort === 'shuffle' ? { sort: 'shuffle', seed } : { sort: '' }),
+  ...(sort === 'unwatched' ? { watched: 'unwatched' } : {}),
+  ...(sort === 'favorites' ? { favorite: 'true' } : {}),
+});
+
+const addedLabel = value => {
+  if (!value) return '';
+  const days = Math.floor((Date.now() - new Date(value).getTime()) / 86400000);
+  if (Number.isNaN(days)) return '';
+  return days <= 0 ? 'Added today' : days === 1 ? 'Added yesterday' : days < 30 ? `Added ${days} days ago` : `Added ${new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
 
 const readMuted = () => { try { return localStorage.getItem(MUTED_KEY) === 'true'; } catch { return false; } };
 const newSeed = () => Math.random().toString(36).slice(2, 10);
@@ -82,7 +100,7 @@ function ReelPlayer({ item, muted, onAutoplayMuted, paused, onPausedChange }) {
   </>;
 }
 
-function Reel({ item, index, active, muted, paused, onPausedChange, onToggleMute, onAutoplayMuted, onFavorite }) {
+function Reel({ item, index, active, muted, paused, onPausedChange, onToggleMute, onAutoplayMuted, onFavorite, onWatchLater, onPlaylist, onWatched }) {
   const meta = [item.studioName, ...(item.performers || []).slice(0, 3)].filter(Boolean);
   return <section className={`rs-reel${active ? ' is-active' : ''}`} data-index={index} aria-label={item.title}>
     <div className="rs-reel-stage">
@@ -94,15 +112,38 @@ function Reel({ item, index, active, muted, paused, onPausedChange, onToggleMute
           <Link to={`/library/${item.id}`} state={{ from: '/reels' }} className="rs-reel-title">{item.title}</Link>
           {meta.length > 0 && <p>{meta.join(' · ')}</p>}
         </div>
+        {active && <div className="rs-reel-controls">
+          <button type="button" aria-label={paused ? 'Play' : 'Pause'} onClick={() => onPausedChange(!paused)}>{paused ? <Play size={20} /> : <Pause size={20} />}</button>
+          <button type="button" aria-pressed={muted} aria-label={muted ? 'Unmute' : 'Mute'} onClick={onToggleMute}>{muted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
+        </div>}
       </div>
       <div className="rs-reel-actions">
-        <button type="button" className={item.favorite ? 'is-on' : ''} aria-pressed={!!item.favorite} aria-label={item.favorite ? 'Remove from favorites' : 'Add to favorites'} onClick={() => onFavorite(item)}><Heart size={22} fill={item.favorite ? 'currentColor' : 'none'} /></button>
-        {active && <button type="button" aria-label={paused ? 'Play' : 'Pause'} onClick={() => onPausedChange(!paused)}>{paused ? <Play size={22} /> : <Pause size={22} />}</button>}
-        <button type="button" aria-pressed={muted} aria-label={muted ? 'Unmute' : 'Mute'} onClick={onToggleMute}>{muted ? <VolumeX size={22} /> : <Volume2 size={22} />}</button>
-        <Link to={`/library/${item.id}`} state={{ from: '/reels' }} aria-label="Details"><Info size={22} /></Link>
+        <div><button type="button" className={item.favorite ? 'is-on' : ''} aria-pressed={!!item.favorite} aria-label={item.favorite ? 'Remove from favorites' : 'Add to favorites'} onClick={() => onFavorite(item)}><Heart size={22} fill={item.favorite ? 'currentColor' : 'none'} /></button><span>Favorite</span></div>
+        <div><button type="button" className={item.watchLater ? 'is-on' : ''} aria-pressed={!!item.watchLater} aria-label={item.watchLater ? 'Remove from Watch later' : 'Watch later'} onClick={() => onWatchLater(item)}><Clock3 size={22} /></button><span>Later</span></div>
+        <div><button type="button" aria-label="Add to playlist" onClick={() => onPlaylist(item)}><ListPlus size={22} /></button><span>Playlist</span></div>
+        <div>
+          <DropdownMenu><DropdownMenuTrigger asChild><button type="button" aria-label="More"><Ellipsis size={22} /></button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={`/library/${item.id}`} state={{ from: '/reels' }}><Info size={16} /> Open details</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => onWatched(item)}><Check size={16} /> Mark as watched</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <span>More</span>
+        </div>
       </div>
     </div>
   </section>;
+}
+
+// The reel on screen, described beside the stage: studio, title, shape, people and tags.
+function ReelInfo({ item }) {
+  const shape = item.width && item.height ? `${item.width} × ${item.height}` : '';
+  const line = [item.durationSeconds ? formatClock(item.durationSeconds) : '', shape, addedLabel(item.dateAdded)].filter(Boolean).join(' · ');
+  const tags = [...(item.categories || []), ...(item.tags || [])].slice(0, 6);
+  return <aside className="rs-reels-info" aria-label="About this reel">
+    {item.studioName && <span className="rs-reels-studio">{item.studioName}</span>}
+    <h2>{item.title}</h2>
+    {line && <p>{line}</p>}
+    {!!item.performers?.length && <div className="rs-reels-people">{item.performers.slice(0, 4).map(name => <Link key={name} to={`/search?q=${encodeURIComponent(name)}`}><span aria-hidden="true">{name.split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>{name}</Link>)}</div>}
+    {!!tags.length && <div className="rs-reels-tags">{tags.map(tag => <span key={tag}>{tag}</span>)}</div>}
+    <Link className="rs-reels-open" to={`/library/${item.id}`} state={{ from: '/reels' }}>Open full title page →</Link>
+  </aside>;
 }
 
 export default function Reels() {
@@ -115,11 +156,12 @@ export default function Reels() {
   const [error, setError] = useState(null);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [playlistFor, setPlaylistFor] = useState(null);
   const [muted, setMuted] = useState(readMuted);
   const feedRef = useRef(null);
   const loadingMore = useRef(false);
 
-  const fetchPage = useCallback(offset => getMediaItems({ reels: 'true', sort: sort === 'shuffle' ? 'shuffle' : '', seed, limit: PAGE_SIZE, offset }), [sort, seed]);
+  const fetchPage = useCallback(offset => getMediaItems({ reels: 'true', ...orderParams(sort, seed), limit: PAGE_SIZE, offset }), [sort, seed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +216,8 @@ export default function Reels() {
 
   // One wheel gesture moves one reel, as in Shorts: a mouse notch is too short to pass the snap
   // point, and a trackpad flick would otherwise fly past several.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const activeRef = useRef(active);
   activeRef.current = active;
   useEffect(() => {
@@ -205,12 +249,13 @@ export default function Reels() {
       else if (key === 'arrowup' || key === 'k') goTo(active - 1);
       else if (key === ' ') setPaused(current => !current);
       else if (key === 'm') toggleMute();
+      else if (key === 'f') { const reel = itemsRef.current[active]; if (reel) toggleFavorite(reel); }
       else return;
       event.preventDefault();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, goTo, toggleMute]);
+  }, [active, goTo, toggleMute]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleFavorite(item) {
     try {
@@ -221,9 +266,26 @@ export default function Reels() {
     }
   }
 
+  async function toggleWatchLater(item) {
+    const next = !item.watchLater;
+    try {
+      if (next) await addWatchLater(item.id); else await removeWatchLater(item.id);
+      setItems(current => current.map(entry => entry.id === item.id ? { ...entry, watchLater: next } : entry));
+      toast({ title: next ? 'Saved to Watch later' : 'Removed from Watch later', tone: 'success' });
+    } catch (err) {
+      toast({ title: 'Could not update Watch later', description: err.message, tone: 'danger' });
+    }
+  }
+  async function markWatched(item) {
+    try { await updatePlayback(item.id, 0, true); toast({ title: 'Marked as watched', tone: 'success' }); }
+    catch (err) { toast({ title: 'Could not mark as watched', description: err.message, tone: 'danger' }); }
+  }
+
   const sortPicker = <div className="rs-reels-sort" role="group" aria-label="Order">
-    {SORTS.map(({ value, label, icon: Icon }) => <button type="button" key={value} aria-pressed={sort === value} onClick={() => setSort(value)}><Icon size={14} /> {label}</button>)}
+    {SORTS.map(({ value, label }) => <button type="button" key={value} aria-pressed={sort === value} onClick={() => setSort(value)}>{label}</button>)}
   </div>;
+  const current = items[active];
+  const upNext = items.slice(active + 1, active + 5);
 
   if (!loading && (error || !items.length)) {
     return <div className="rs-reels rs-reels-empty">
@@ -234,12 +296,31 @@ export default function Reels() {
   }
 
   return <div className="rs-reels">
+    <div className="rs-reels-top">
+      <Link to="/" className="rs-reels-home"><ArrowLeft size={18} aria-hidden="true" />Home</Link>
+      <h1>Reels</h1>
+      <div className="rs-reels-order" role="group" aria-label="Order">{SORTS.map(({ value, label }) => <button type="button" key={value} aria-pressed={sort === value} onClick={() => setSort(value)}>{label}</button>)}</div>
+      <span className="rs-reels-gap" />
+      {total > 0 && <span className="rs-reels-count">{active + 1} of {total.toLocaleString()}</span>}
+    </div>
     {sortPicker}
+    {current && <ReelInfo item={current} />}
     <div className="rs-reels-feed" ref={feedRef} aria-busy={loading}>
       {items.map((item, index) => <Reel key={item.id} item={item} index={index} active={index === active}
         muted={muted} paused={paused} onPausedChange={setPaused} onToggleMute={toggleMute}
-        onAutoplayMuted={() => setMuted(true)} onFavorite={toggleFavorite} />)}
+        onAutoplayMuted={() => setMuted(true)} onFavorite={toggleFavorite} onWatchLater={toggleWatchLater} onPlaylist={setPlaylistFor} onWatched={markWatched} />)}
     </div>
+    <aside className="rs-reels-queue" aria-label="Up next">
+      <button type="button" className="rs-reels-step" aria-label="Previous reel" disabled={active <= 0} onClick={() => goTo(active - 1)}><ChevronUp size={20} /></button>
+      <span className="rs-reels-queue-label">Up next</span>
+      {upNext.map((reel, offset) => <button type="button" key={reel.id} className="rs-reels-queue-item" onClick={() => goTo(active + 1 + offset)}>
+        <span className="rs-reels-queue-thumb" style={{ backgroundImage: `url(${artworkUrl(reel.id, 'thumbnail')})` }} />
+        <span><strong>{reel.title}</strong><small>{reel.durationSeconds ? formatClock(reel.durationSeconds) : ''}</small></span>
+      </button>)}
+      <button type="button" className="rs-reels-step is-next" aria-label="Next reel" disabled={active >= items.length - 1} onClick={() => goTo(active + 1)}><ChevronDown size={20} /></button>
+      <span className="rs-reels-hint">↑ ↓ to move · Space to pause · F to favorite</span>
+    </aside>
+    <AddToPlaylist mediaItemId={playlistFor?.id} open={!!playlistFor} onOpenChange={open => { if (!open) setPlaylistFor(null); }} />
     <div className="rs-reels-nav">
       <button type="button" aria-label="Previous reel" disabled={active <= 0} onClick={() => goTo(active - 1)}><ChevronUp size={22} /></button>
       <button type="button" aria-label="Next reel" disabled={active >= items.length - 1} onClick={() => goTo(active + 1)}><ChevronDown size={22} /></button>

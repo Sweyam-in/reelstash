@@ -12,6 +12,6 @@ test('admin terms are neutral across all libraries', () => {
 test('admin terms follow the selected library mode', () => {
   assert.equal(adminTerms({ mode: 'entertainment' }).people, 'Actors');
   assert.equal(adminTerms({ mode: 'entertainment' }).categories, 'Genres');
-  assert.equal(adminTerms({ mode: 'private' }).people, 'Performers');
+  assert.equal(adminTerms({ mode: 'private' }).people, 'People');
   assert.equal(adminTerms({ mode: 'private' }).seriesPlural, 'Series');
 });

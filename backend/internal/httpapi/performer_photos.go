@@ -21,6 +21,10 @@ func (a *API) servePerformerImage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if !a.entityAccessible(r, performerMediaExists, id) {
+		http.NotFound(w, r)
+		return
+	}
 	var key, mime string
 	query := `
 		SELECT ar.storage_key, ar.mime_type
@@ -73,6 +77,10 @@ type performerPhoto struct {
 func (a *API) listPerformerPhotos(w http.ResponseWriter, r *http.Request) {
 	id, ok := performerIDParam(w, r)
 	if !ok {
+		return
+	}
+	if !a.entityAccessible(r, performerMediaExists, id) {
+		writeError(w, http.StatusNotFound, "performer not found")
 		return
 	}
 	rows, err := a.DB.Query(r.Context(), `

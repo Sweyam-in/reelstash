@@ -149,6 +149,8 @@ export const startWatchSession = mediaItemId => post(`/api/playback/${mediaItemI
 export const updateWatchSession = (sessionId, body, keepalive = false) =>
   fetch(`/api/playback/session/${sessionId}`, { method: 'PUT', credentials: 'include', keepalive, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 export const getHomeRecommendations = () => get('/api/recommendations/home');
+export const getHomeSummary = () => get('/api/home/summary');
+export const getHomeSeries = (limit = 6) => get(`/api/home/series?limit=${limit}`);
 export const getWatchActivity = (days = 30) => get(`/api/activity?days=${days}`);
 export const getContinueWatching = (params = {}) => get(`/api/playback/continue?${new URLSearchParams(params)}`);
 export const getNextUp = (params = {}) => get(`/api/playback/next-up?${new URLSearchParams(params)}`);
@@ -194,6 +196,7 @@ export const linkPerformerMedia = (id, mediaItemId) => post(`/api/performers/${i
 export const unlinkPerformerMedia = (id, mediaItemId) => del(`/api/performers/${id}/media/${mediaItemId}`);
 export const unmatchPerformerProvider = (id, options) => post(`/api/performers/${id}/match/unmatch`, options);
 export const setPerformerFavorite = (id, favorite) => put(`/api/performers/${id}/favorite`, { favorite });
+export const setPerformerNotify = (id, notify) => put(`/api/performers/${id}/notify`, { notify });
 export const deletePerformerImage = id => del(`/api/performers/${id}/image`);
 export const getPerformerFieldSources = id => get(`/api/performers/${id}/field-sources`);
 export const setPerformerFieldSources = (id, sources) => put(`/api/performers/${id}/field-sources`, { sources });

@@ -1,5 +1,5 @@
 import { formatBytes } from '../format.js';
-import { Building2, Captions, Clapperboard, Copy, Film, FolderSync, Images, ScanLine, Sparkles, Tags, Trash2, Users, Wrench } from 'lucide-react';
+import { Building2, Captions, Clapperboard, Copy, FileVideo, Film, FolderSync, Images, ScanLine, Sparkles, Tags, Trash2, Users, Wrench } from 'lucide-react';
 
 // Everything an admin can start by hand. `perLibrary` tasks run against one
 // library (across every disk it has folders on); the rest cover everything.
@@ -21,7 +21,7 @@ export const JOB_KINDS = {
 export const RUNNABLE_KINDS = Object.keys(JOB_KINDS);
 
 // Housekeeping kinds the API hides from the list but that can still be looked up by id.
-const OTHER_TITLES = { THUMBNAIL: 'Generate thumbnail', NAMER: 'Match one file', PERFORMER_MATCH: 'Match person', STUDIO_MATCH: 'Match studio', SPRITE: 'Build scrub preview', PREVIEW: 'Build hover preview', HOUSEKEEPING: 'Housekeeping', FILE_TRANSFER: 'Paste files' };
+const OTHER_TITLES = { THUMBNAIL: 'Generate thumbnail', NAMER: 'Match one file', PERFORMER_MATCH: 'Match person', STUDIO_MATCH: 'Match studio', SPRITE: 'Build scrub preview', PREVIEW: 'Build hover preview', HOUSEKEEPING: 'Housekeeping', FILE_TRANSFER: 'Paste files', DVD_CONVERT: 'Convert DVD' };
 export const jobTitle = kind => JOB_KINDS[kind]?.title || OTHER_TITLES[kind] || kind;
 
 // A library scan names the library and the disk; other jobs name their disk.
@@ -31,7 +31,8 @@ export function jobName(job) {
     : job.storageLocationName;
   return where ? `${jobTitle(job.kind)} · ${where}` : jobTitle(job.kind);
 }
-export const jobIcon = kind => JOB_KINDS[kind]?.icon || Tags;
+const EXTRA_ICONS = { DVD_CONVERT: FileVideo };
+export const jobIcon = kind => JOB_KINDS[kind]?.icon || EXTRA_ICONS[kind] || Tags;
 export const isActive = job => job.status === 'PENDING' || job.status === 'RUNNING';
 
 const SCAN_PHASE = {
@@ -92,6 +93,12 @@ export function resultSummary(job) {
   if (job.kind === 'TRACK_SCAN' && r) {
     const parts = [`${r.checked ?? 0} checked`, `${r.probed ?? 0} read`, `${r.withSubtitles ?? 0} with subtitles`];
     if (r.failed) parts.push(`${r.failed} unreadable`);
+    return parts.join(' · ');
+  }
+  if (job.kind === 'DVD_CONVERT' && r) {
+    const parts = [`${r.converted ?? 0} converted`];
+    if (r.skipped) parts.push(`${r.skipped} skipped`);
+    if (r.failed) parts.push(`${r.failed} failed`);
     return parts.join(' · ');
   }
   if (job.kind === 'MP4_REPAIR' && r) {

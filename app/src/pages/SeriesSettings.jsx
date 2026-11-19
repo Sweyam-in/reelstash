@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SettingsDialog from '../components/SettingsDialog';
+import { monogram } from '../components/Monogram';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
   FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
-} from '@spatika/react';
-import { ArrowDown, ArrowUp, Check, ExternalLink, ImageUp, Search, Trash2, Unlink, X } from 'lucide-react';
+} from '../ui';
+import { ArrowDown, ArrowUp, Check, ExternalLink, ImageUp, Search, Trash2, Unlink, X, FileText, Film, Image as ImageIcon, Sparkles } from 'lucide-react';
 import {
   addSeriesMedia, artworkUrl, assignSeriesPart, deleteSeries, deleteSeriesBackdrop, deleteSeriesImage, seriesBackdropUrl, uploadSeriesBackdrop, uploadSeriesImage, setSeriesProviderImage, getMediaItems, getProviders, getSeriesItem, getSeriesParts,
   linkSeriesProvider, orderSeriesMedia, removeSeriesMedia, searchSeriesProviders, unlinkSeriesProvider, updateSeries,
@@ -368,11 +370,13 @@ function BackdropTab({ series, onChanged }) {
   </div>;
 }
 
-function DetailsTab({ series, onSaved, onDeleted }) {
+function DetailsTab({ series, onSaved, onDeleted, onState }) {
   const { toast } = useToast();
   const [name, setName] = useState(series.name || '');
   const [description, setDescription] = useState(series.description || '');
   const [busy, setBusy] = useState(false);
+  useEffect(() => () => onState?.({ dirty: false, busy: false }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onState?.({ dirty: name !== (series.name || '') || description !== (series.description || ''), busy }); }, [name, description, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function save(event) {
@@ -401,11 +405,11 @@ function DetailsTab({ series, onSaved, onDeleted }) {
     }
   }
 
-  return <form className="rs-pm-form" onSubmit={save}>
+  return <form id="rs-pm-details" className="rs-pm-form" onSubmit={save}>
     <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
     <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" /></FormField>
     <div className="rs-pm-actions">
-      <Button type="submit" disabled={busy || !name.trim()}>Save changes</Button>
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Delete series</Button>
     </div>
     <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -442,28 +446,27 @@ export default function SeriesSettings({ seriesId, open, onOpenChange, onChanged
 
   const changed = useCallback(() => load().then(() => onChanged?.()).catch(() => {}), [load, onChanged]);
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent size="xl" className="rs-pm">
-      <DialogHeader><DialogTitle>{series ? `${series.name} · settings` : 'Series settings'}</DialogTitle></DialogHeader>
-      <DialogBody>
-        {!series && <p className="rs-pm-muted">Loading…</p>}
-        {series && <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="videos">Videos</TabsTrigger>
-            <TabsTrigger value="match">Metadata Providers</TabsTrigger>
-            <TabsTrigger value="poster">Poster</TabsTrigger>
-            <TabsTrigger value="backdrop">Backdrop</TabsTrigger>
-          </TabsList>
-          <div className="rs-pm-panel">
-            <TabsContent value="videos"><VideosTab series={series} onChanged={changed} /></TabsContent>
-            <TabsContent value="match"><MatchTab series={series} onChanged={changed} /></TabsContent>
-            <TabsContent value="poster"><PosterTab series={series} onChanged={changed} /></TabsContent>
-            <TabsContent value="backdrop"><BackdropTab series={series} onChanged={changed} /></TabsContent>
-            <TabsContent value="details"><DetailsTab key={`${series.id}-${series.name}`} series={series} onSaved={changed} onDeleted={() => { onOpenChange(false); onDeleted?.(); }} /></TabsContent>
-          </div>
-        </Tabs>}
-      </DialogBody>
-    </DialogContent>
-  </Dialog>;
+  const [detailsState, setDetailsState] = useState({ dirty: false, busy: false });
+  useEffect(() => { if (!open) setDetailsState({ dirty: false, busy: false }); }, [open]);
+  const tabs = [
+    { value: 'details', label: 'Details', icon: FileText },
+    { value: 'videos', label: 'Videos', icon: Film },
+    { value: 'match', label: 'Metadata providers', icon: Sparkles },
+    { value: 'poster', label: 'Poster', icon: ImageIcon },
+    { value: 'backdrop', label: 'Backdrop', icon: ImageIcon },
+  ];
+  return <SettingsDialog open={open} onOpenChange={onOpenChange} className="" loading={!series}
+    lead={series ? <SeriesCover series={series} /> : null}
+    kicker="Series settings" title={series ? (series.name) : 'Loading…'}
+    tabs={tabs} tab={tab} onTab={setTab}
+    dirty={detailsState.dirty} onSave={() => document.getElementById('rs-pm-details')?.requestSubmit()} canSave={detailsState.dirty} saving={detailsState.busy} showSave={tab === 'details'}>
+    {series && <>
+        <TabsContent value="videos"><VideosTab series={series} onChanged={changed} /></TabsContent>
+        <TabsContent value="match"><MatchTab series={series} onChanged={changed} /></TabsContent>
+        <TabsContent value="poster"><PosterTab series={series} onChanged={changed} /></TabsContent>
+        <TabsContent value="backdrop"><BackdropTab series={series} onChanged={changed} /></TabsContent>
+        <TabsContent value="details"><DetailsTab onState={setDetailsState} key={`${series.id}-${series.name}`} series={series} onSaved={changed} onDeleted={() => { onOpenChange(false); onDeleted?.(); }} /></TabsContent>
+
+    </>}
+  </SettingsDialog>;
 }

@@ -1,11 +1,11 @@
 // Each library has a mode that sets the words the media app uses and which
 // pages it shows. Entertainment follows the Plex/Jellyfin conventions (movies,
 // TV shows with seasons and episodes, cast & crew, genres); Private keeps
-// ReelStash's original videos / performers / studios / series.
+// ReelStash's original videos / people / studios / series, in neutral words.
 
 export const LIBRARY_MODES = [
   { id: 'entertainment', label: 'Entertainment', description: 'Movies and TV shows, with cast & crew, seasons and episodes.' },
-  { id: 'private', label: 'Private videos', description: 'Videos with performers, studios and series.' },
+  { id: 'private', label: 'Private videos', description: 'Videos with people, studios and series.' },
 ];
 
 const TERMS = {
@@ -21,11 +21,11 @@ const TERMS = {
   private: {
     title: 'Video', titles: 'Videos', library: 'Library',
     show: 'Series', season: 'Season', episode: 'Episode',
-    person: 'Performer', people: 'Performers', cast: 'Performers', actors: 'Performers', director: 'Director', directors: 'Directors',
+    person: 'Person', people: 'People', cast: 'People', actors: 'People', director: 'Director', directors: 'Directors',
     studio: 'Studio', studios: 'Studios',
     series: 'Series', seriesPlural: 'Series',
     category: 'Category', categories: 'Categories',
-    searchPlaceholder: 'Search titles, studios, performers…',
+    searchPlaceholder: 'Search titles, people, studios, categories',
   },
 };
 

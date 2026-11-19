@@ -1,9 +1,33 @@
 // Color themes for the media library. The admin picks one; light and dark stay
 // a personal choice. Ids must match mediaColorThemeIDs in the API.
 
-export const DEFAULT_COLOR_THEME = 'grove';
+export const DEFAULT_COLOR_THEME = 'reelstash';
 
 export const COLOR_THEMES = [
+  {
+    id: 'reelstash',
+    name: 'ReelStash',
+    blurb: 'The logo’s teal, with marigold highlights.',
+    from: '#55c7b0',
+    to: '#f2b544',
+    accent: '#55c7b0',
+    accentText: '#a9ebdc',
+    accentLight: '#1f7a69',
+    accentTextLight: '#17604f',
+    tones: ['#55c7b0', '#2a917f', '#f2b544', '#7adbc8', '#e8a33a', '#3fa391', '#f7d58f', '#8fe3d2'],
+  },
+  {
+    id: 'marquee',
+    name: 'Marquee',
+    blurb: 'Warm amber on deep ink, like a cinema marquee.',
+    from: '#f2b544',
+    to: '#c46a2b',
+    accent: '#f2b544',
+    accentText: '#f7d58f',
+    accentLight: '#9a6500',
+    accentTextLight: '#7a4f00',
+    tones: ['#f2b544', '#e8a33a', '#7ab8ff', '#c46a2b', '#f7d58f', '#5fa8d3', '#d98e3a', '#a9d0ff'],
+  },
   {
     id: 'grove',
     name: 'Grove',

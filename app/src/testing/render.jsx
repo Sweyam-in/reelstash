@@ -1,16 +1,16 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { SpatikaThemeProvider, Toaster } from '@spatika/react';
+import { ThemeScope, Toaster } from '../ui';
 
 /** Renders ui inside the providers every screen expects (router + toasts). */
 export function renderApp(ui, { route = '/', ...options } = {}) {
   return render(
-    <SpatikaThemeProvider defaultTheme="mukta" storageKey="reelstash-test-theme" syncDocument={false}>
+    <ThemeScope theme="dark">
       <Toaster position="top-right">
         <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{ui}</MemoryRouter>
       </Toaster>
-    </SpatikaThemeProvider>,
+    </ThemeScope>,
     options,
   );
 }

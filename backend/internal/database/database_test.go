@@ -26,8 +26,8 @@ func TestSQLiteCreatesCurrentSchema(t *testing.T) {
 	if err := store.QueryRow(ctx, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil {
 		t.Fatal(err)
 	}
-	if tables != 65 {
-		t.Errorf("SQLite tables = %d, want 65", tables)
+	if tables != 68 {
+		t.Errorf("SQLite tables = %d, want 68", tables)
 	}
 }
 

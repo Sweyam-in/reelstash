@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import SettingsDialog from '../components/SettingsDialog';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
   FormField, Input, SegmentedControl, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
-} from '@spatika/react';
-import { ArrowDown, ArrowUp, Film, ImageUp, ChevronDown, Minus, Plus, RefreshCw, Search, Sparkles, Trash2, Unlink, X } from 'lucide-react';
+} from '../ui';
+import { ArrowDown, ArrowUp, Building2, Captions, FileText, Film, HardDrive, Image as ImageIcon, ImageUp, ListVideo, Smartphone, Users, ChevronDown, Minus, Plus, RefreshCw, Search, Sparkles, Trash2, Unlink, X } from 'lucide-react';
 import {
   artworkUrl, deleteMediaItem, deleteMediaPoster, deleteMediaBackdrop, mediaFrameUrl, requestPreview, setPosterFromFrame, setBackdropFromFrame, uploadMediaPoster, uploadMediaBackdrop, getCategories, getMediaItem, getMediaMatchState, getMediaLinkedRecords, getProviders, linkMediaProvider, getPerformers, getSeries, getStudios, performerImageUrl, setMediaReel, setMediaSeries, studioImageUrl, matchMediaProvider, searchMediaProviders, unmatchMediaProvider, updateMediaMetadata,
 } from '../api';
@@ -153,8 +154,9 @@ function MatchTab({ item, onMatched }) {
     setPending(null);
     setBusy(true);
     try {
-      await matchMediaProvider(item.id, candidate.provider, candidate.externalId, keeping);
-      toast({ title: `Matched “${candidate.title}”`, description: 'The file, NFO and library entry are updated.', tone: 'success' });
+      const applied = await matchMediaProvider(item.id, candidate.provider, candidate.externalId, keeping);
+      const kept = applied?.keptFields || [];
+      toast({ title: `Matched “${candidate.title}”`, description: kept.length ? `Updated from the match. Kept your ${kept.join(', ')}.` : 'The file, NFO and library entry are updated.', tone: 'success' });
       setResults(null);
       await loadState();
       onMatched();
@@ -195,6 +197,7 @@ function MatchTab({ item, onMatched }) {
         <span>
           <strong>{candidate.title}</strong>
           <small>{[providers.length > 1 && providerName(candidate.provider), candidate.kind === 'scene' ? 'Scene' : candidate.kind === 'movie' ? 'Movie' : candidate.kind === 'show' ? 'TV Show' : candidate.kind === 'jav' ? 'JAV' : null, candidate.site, candidate.date].filter(Boolean).join(' · ')}</small>
+          {candidate.score > 0 && <span className={`rs-match-score ${candidate.score >= 85 ? 'is-high' : candidate.score >= 60 ? 'is-mid' : 'is-low'}`} title="How closely this record matches the file">{Math.round(candidate.score)}% match</span>}
           {candidate.rejected && <small>You marked this as a wrong match before</small>}
           {links.some(l => l.provider === candidate.provider && l.externalId === candidate.externalId) && <small>Currently linked</small>}
           {!!candidate.performers?.length && <small>{candidate.performers.slice(0, 5).join(', ')}</small>}
@@ -281,6 +284,7 @@ function useLooksBlack(src) {
   const [black, setBlack] = useState(false);
   useEffect(() => {
     setBlack(false);
+    if (!src) return undefined;
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
@@ -299,7 +303,8 @@ function useLooksBlack(src) {
   return black;
 }
 
-// Preview any moment of the video and use it for either artwork slot.
+// Pick a moment of the video for either artwork slot: a filmstrip of candidate frames, a larger preview with a
+// scrubber, and one button to use it. Clicking a frame jumps the preview there.
 function FramePicker({ item, busy, run, kind = 'poster' }) {
   const file = item.files?.find(f => f.available);
   const duration = Number(item.durationSeconds || file?.durationSeconds || 0);
@@ -312,39 +317,93 @@ function FramePicker({ item, busy, run, kind = 'poster' }) {
   const nudge = delta => setSeconds(value => Math.min(max, Math.max(0, Math.round((value + delta) * 10) / 10)));
   const setFrame = kind === 'backdrop' ? setBackdropFromFrame : setPosterFromFrame;
   const label = kind === 'backdrop' ? 'Backdrop' : 'Poster';
+  const candidates = duration > 0 ? [0.1, 0.3, 0.5, 0.7, 0.9].map(fraction => Math.round(duration * fraction)) : [];
 
   if (!file) return <p className="rs-pm-muted">The video file isn’t available right now, so a frame can’t be picked from it.</p>;
   return <div className="rs-pm-frame">
+    {candidates.length > 0 && <div className="rs-frame-strip" role="group" aria-label={`Frames to use as the ${kind}`}>
+      {candidates.map(time => <button key={time} type="button" className={`rs-frame-thumb${Math.abs(time - seconds) < 1 ? ' is-picked' : ''}`} aria-label={`Frame at ${formatClock(time)}`} aria-pressed={Math.abs(time - seconds) < 1} disabled={busy} onClick={() => setSeconds(time)}>
+        <img src={mediaFrameUrl(item.id, time)} alt="" loading="lazy" />
+        <span>{formatClock(time)}</span>
+      </button>)}
+    </div>}
     <div className={`rs-pm-frame-preview is-${frameState}`}>
       <img src={src} alt={`Frame at ${formatClock(shown)}`} onLoad={() => setFrameState('ready')} onError={() => setFrameState('error')} />
       {frameState === 'loading' && <span>Reading frame…</span>}
       {frameState === 'error' && <span>Couldn’t read a frame there.</span>}
     </div>
-    <input className="rs-pm-frame-slider" type="range" min={0} max={max} step={0.5} value={Math.min(seconds, max)} aria-label={`${label} position in the video`} onChange={event => setSeconds(Number(event.target.value))} />
     <div className="rs-pm-frame-row">
       <span className="rs-pm-frame-time">{formatClock(seconds)}{duration > 0 && <small> / {formatClock(duration)}</small>}</span>
+      <input className="rs-pm-frame-slider" type="range" min={0} max={max} step={0.5} value={Math.min(seconds, max)} aria-label={`${label} position in the video`} onChange={event => setSeconds(Number(event.target.value))} />
       <span className="rs-pm-actions">
         <button type="button" className="rs-pm-icon" aria-label={`${label}: back 1 second`} disabled={busy || seconds <= 0} onClick={() => nudge(-1)}><Minus size={15} /></button>
         <button type="button" className="rs-pm-icon" aria-label={`${label}: forward 1 second`} disabled={busy || seconds >= max} onClick={() => nudge(1)}><Plus size={15} /></button>
-        <Button disabled={busy || frameState === 'error'} onClick={() => run(() => setFrame(item.id, { seconds }), `${label} set from ${formatClock(seconds)}`, label)}><Film size={15} /> Use as {kind}</Button>
-        <Button variant="secondary" disabled={busy} onClick={() => run(async () => { const result = await setFrame(item.id, { auto: true }); setSeconds(Math.round(result.seconds * 2) / 2); }, `${label} set from a clear frame`, label)}><Sparkles size={15} /> Auto-pick {kind} frame</Button>
       </span>
     </div>
+    <div className="rs-pm-actions">
+      <Button disabled={busy || frameState === 'error'} onClick={() => run(() => setFrame(item.id, { seconds }), `${label} set from ${formatClock(seconds)}`, label)}><Film size={15} /> Use as {kind}</Button>
+      <Button variant="secondary" disabled={busy} onClick={() => run(async () => { const result = await setFrame(item.id, { auto: true }); setSeconds(Math.round(result.seconds * 2) / 2); }, `${label} set from a clear frame`, label)}><Sparkles size={15} /> Auto-pick a frame</Button>
+    </div>
+  </div>;
+}
+
+// One artwork slot: what is set now, a drop zone for an image, and the frame picker.
+function ArtworkPane({ item, kind, busy, run }) {
+  const [dragging, setDragging] = useState(false);
+  const isBackdrop = kind === 'backdrop';
+  const label = isBackdrop ? 'Backdrop' : 'Poster';
+  const imageId = isBackdrop ? item.backdropImageId : item.posterImageId;
+  const src = artworkUrl(item.id, kind, imageId);
+  const looksBlack = useLooksBlack(isBackdrop ? null : src);
+  const upload = isBackdrop ? uploadMediaBackdrop : uploadMediaPoster;
+  const remove = isBackdrop ? deleteMediaBackdrop : deleteMediaPoster;
+  const hasFile = item.files?.some(f => f.available);
+  const take = file => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { run(async () => { throw new Error('Use a JPEG, PNG, WebP or GIF image.'); }, '', label); return; }
+    run(() => upload(item.id, file), `${label} saved`, label);
+  };
+  return <div className="rs-art-pane">
+    <div className="rs-art-now">
+      <div className={`rs-art-preview${isBackdrop ? ' is-wide' : ''}`}>
+        {imageId ? <img src={src} alt={`Current ${kind}`} /> : <span>No {kind} set</span>}
+      </div>
+      <div className="rs-art-side">
+        <p className="rs-pm-muted">{isBackdrop
+          ? 'The backdrop fills the title page behind its heading. Choose a wide image or take a frame from the video. A backdrop you set is kept when metadata is matched again.'
+          : 'The poster is the title’s cover. It is never replaced by a metadata match or a rescan once you set it.'}</p>
+        {looksBlack && <p className="rs-pm-warning" role="status">This poster looks black. Pick another moment below, or let ReelStash choose one.</p>}
+        <label className={`rs-art-drop${dragging ? ' is-over' : ''}${busy ? ' is-disabled' : ''}`}
+          onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
+          onDrop={event => { event.preventDefault(); setDragging(false); if (!busy) take(event.dataTransfer.files?.[0]); }}>
+          <ImageUp size={20} aria-hidden="true" />
+          <span><strong>{busy ? 'Working…' : isBackdrop ? 'Choose backdrop image' : 'Choose image'}</strong><small>or drop one here · JPEG, PNG, WebP or GIF, up to 8 MB</small></span>
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden disabled={busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; take(file); }} />
+        </label>
+        <div className="rs-pm-actions">
+          {imageId && <Button variant="secondary" disabled={busy} onClick={() => run(() => remove(item.id), `${label} removed`, label)}><Trash2 size={15} /> Remove {kind}</Button>}
+          {!isBackdrop && <Button variant="secondary" disabled={busy || !hasFile} onClick={() => run(() => requestPreview(item.id), 'Hover preview is being built')}><Film size={15} /> Build hover preview</Button>}
+        </div>
+      </div>
+    </div>
+    <section>
+      <p className="rs-eyebrow">From the video</p>
+      <FramePicker key={`${item.id}-${kind}`} item={item} busy={busy} run={run} kind={kind} />
+    </section>
   </div>;
 }
 
 function PosterTab({ item, onChanged }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const posterSrc = artworkUrl(item.id, 'poster', item.posterImageId);
-  const looksBlack = useLooksBlack(posterSrc);
+  const [kind, setKind] = useState('poster');
 
   async function run(action, success, label = 'Poster') {
     setBusy(true);
     try {
       await action();
       onChanged();
-      toast({ title: success, tone: 'success' });
+      if (success) toast({ title: success, tone: 'success' });
     } catch (err) {
       toast({ title: `Could not update ${label.toLowerCase()}`, description: err.message, tone: 'danger' });
     } finally {
@@ -352,60 +411,9 @@ function PosterTab({ item, onChanged }) {
     }
   }
 
-  function upload(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file) run(() => uploadMediaPoster(item.id, file), 'Poster saved');
-  }
-
-  function uploadBackdrop(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file) run(() => uploadMediaBackdrop(item.id, file), 'Backdrop saved', 'Backdrop');
-  }
-
   return <div className="rs-pm-poster-tab">
-    <section><p className="rs-eyebrow">Poster</p>
-    <div className="rs-pm-photo">
-      <div className="rs-pm-photo-frame"><img className="rs-pm-poster" src={posterSrc} alt="" /></div>
-      <div>
-        {looksBlack && <p className="rs-pm-warning" role="status">This poster looks black. Pick another moment from the video below, or let ReelStash choose one.</p>}
-        <p className="rs-pm-muted">Set your own poster from the video or an image. It replaces the current one and is never replaced by a metadata provider match or a rescan. Images can be JPEG, PNG, WebP or GIF, up to 8 MB.</p>
-        <div className="rs-pm-actions">
-          <label className={`rs-button rs-button-outline${busy ? ' is-disabled' : ''}`}>
-            <ImageUp size={16} /> {busy ? 'Working…' : 'Choose image'}
-            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden disabled={busy} onChange={upload} />
-          </label>
-          {item.posterImageId && <Button variant="secondary" disabled={busy} onClick={() => run(() => deleteMediaPoster(item.id), 'Poster removed')}><Trash2 size={15} /> Remove poster</Button>}
-          <Button variant="secondary" disabled={busy || !item.files?.some(f => f.available)} onClick={() => run(() => requestPreview(item.id), 'Hover preview is being built')}><Film size={15} /> Build hover preview</Button>
-        </div>
-      </div>
-    </div>
-    <section>
-      <p className="rs-eyebrow">From the video</p>
-      <FramePicker key={item.id} item={item} busy={busy} run={run} />
-    </section>
-    </section>
-    <section className="rs-pm-backdrop-section">
-      <p className="rs-eyebrow">Backdrop</p>
-      <div className="rs-pm-photo">
-        <div className="rs-pm-photo-frame rs-pm-backdrop-frame">
-          {item.backdropImageId ? <img src={artworkUrl(item.id, 'backdrop', item.backdropImageId)} alt="Current backdrop" /> : <span className="rs-pm-muted">No backdrop set</span>}
-        </div>
-        <div>
-          <p className="rs-pm-muted">The backdrop fills the video page behind its title. Choose a wide image or take a frame from the video. A backdrop you set is kept when metadata is matched again. Images can be JPEG, PNG, WebP or GIF, up to 8 MB.</p>
-          <div className="rs-pm-actions">
-            <label className={`rs-button rs-button-outline${busy ? ' is-disabled' : ''}`}>
-              <ImageUp size={16} /> {busy ? 'Working…' : 'Choose backdrop image'}
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden disabled={busy} onChange={uploadBackdrop} />
-            </label>
-            {item.backdropImageId && <Button variant="secondary" disabled={busy} onClick={() => run(() => deleteMediaBackdrop(item.id), 'Backdrop removed', 'Backdrop')}><Trash2 size={15} /> Remove backdrop</Button>}
-          </div>
-        </div>
-      </div>
-      <p className="rs-eyebrow">From the video</p>
-      <FramePicker key={`${item.id}-backdrop`} item={item} busy={busy} run={run} kind="backdrop" />
-    </section>
+    <SegmentedControl aria-label="Artwork" value={kind} onChange={setKind} options={[{ value: 'poster', label: 'Poster' }, { value: 'backdrop', label: 'Backdrop' }]} />
+    <ArtworkPane key={kind} item={item} kind={kind} busy={busy} run={run} />
   </div>;
 }
 
@@ -432,7 +440,7 @@ function FileTab({ item, canDelete, onDeleted }) {
       <dl className="rs-pm-file-grid">
         <dt>Path</dt><dd>{file.storageLocation} / {file.relativePath}</dd>
         <dt>File name</dt><dd>{file.fileName}</dd>
-        {file.originalFileName && file.originalFileName !== file.fileName && <><dt>Original name</dt><dd>{file.originalFileName}</dd></>}
+        {file.originalFileName && <><dt>Original name</dt><dd>{file.originalFileName}</dd></>}
         <dt>Format</dt><dd>{(file.container || file.extension || '—').toUpperCase()}</dd>
         <dt>Size</dt><dd>{formatBytes(file.fileSize)}</dd>
         <dt>Resolution</dt><dd>{file.width && file.height ? `${file.width}×${file.height}` : '—'}</dd>
@@ -484,21 +492,23 @@ function DeleteTab({ item, onDeleted }) {
 function ChipEditor({ label, values, onChange, suggestions, placeholder }) {
   const [text, setText] = useState('');
   function add() {
-    const value = text.trim();
+    const value = text.trim().replace(/,$/, '').trim();
     if (value && !values.some(existing => existing.toLowerCase() === value.toLowerCase())) onChange([...values, value]);
     setText('');
   }
   const listId = `rs-chip-${label.replace(/\W/g, '')}`;
-  return <div>
-    <p className="rs-eyebrow">{label}</p>
-    <p className="rs-pm-chips rs-pm-chips-edit">
-      {values.map(value => <span key={value}>{value}<button type="button" aria-label={`Remove ${value}`} onClick={() => onChange(values.filter(v => v !== value))}><X size={12} /></button></span>)}
-      {!values.length && <small className="rs-pm-muted">None</small>}
-    </p>
-    <div className="rs-match-search">
-      <input list={listId} value={text} placeholder={placeholder} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
+  // Chips and the input share one box: Enter or a comma adds, Backspace on an empty box removes the last chip.
+  return <div className="rs-chipbox-field">
+    <span className="rs-chipbox-label" id={`${listId}-label`}>{label}</span>
+    <div className="rs-chipbox" onClick={event => { if (event.target === event.currentTarget) event.currentTarget.querySelector('input')?.focus(); }}>
+      {values.map(value => <span key={value} className="rs-chipbox-chip">{value}<button type="button" aria-label={`Remove ${value}`} onClick={() => onChange(values.filter(v => v !== value))}><X size={11} /></button></span>)}
+      <input list={listId} aria-labelledby={`${listId}-label`} value={text} placeholder={placeholder}
+        onChange={e => setText(e.target.value)} onBlur={add}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+          else if (e.key === 'Backspace' && !text && values.length) onChange(values.slice(0, -1));
+        }} />
       <datalist id={listId}>{suggestions.map(name => <option key={name} value={name} />)}</datalist>
-      <button type="button" className="rs-button rs-button-outline" disabled={!text.trim()} onClick={add}><Plus size={15} /> Add</button>
     </div>
   </div>;
 }
@@ -515,6 +525,10 @@ function DetailsTab({ draft, update, onSubmit, files = [] }) {
     <FormField label="Title"><Input value={draft.title} onChange={e => update({ title: e.target.value })} /></FormField>
     <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={draft.description} onChange={e => update({ description: e.target.value })} placeholder="Optional" /></FormField>
     <ChipEditor label="Categories" values={draft.categories} onChange={categories => update({ categories })} suggestions={categoryNames} placeholder="Add a category" />
+    <label className="rs-keep-edits">
+      <input type="checkbox" checked={!!draft.keepEdits} onChange={e => update({ keepEdits: e.target.checked })} />
+      <span><strong>Keep my edits</strong><small>A metadata match or rescan won’t overwrite the title, description, studio, categories or people you changed by hand.</small></span>
+    </label>
     {!!originals.length && <div className="rs-pm-original">
       <p className="rs-eyebrow">Original file name{originals.length > 1 ? 's' : ''}</p>
       {originals.map(file => <p key={file.id} className="rs-pm-original-name">{file.originalFileName}</p>)}
@@ -718,10 +732,12 @@ function draftFrom(item) {
     categories: item.categories || [],
     cast: (item.cast || []).map(p => ({ id: p.id, name: p.name, profileImageId: p.profileImageId })),
     studio: { name: item.studioName || '', id: item.studioId || 0, logoImageId: item.studioLogoImageId || null },
+    keepEdits: (item.lockedFields || []).length > 0,
   };
 }
 
 const sameField = {
+  keepEdits: (a, b) => a === b,
   title: (a, b) => a === b,
   description: (a, b) => a === b,
   categories: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
@@ -746,7 +762,6 @@ export default function MediaSettings({ mediaItemId, open, onOpenChange, onChang
   const [form, setForm] = useState(null);
   const [tab, setTab] = useState('details');
   const [saving, setSaving] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
 
   const load = useCallback(({ reset = false } = {}) => getMediaItem(mediaItemId).then(result => {
     setItem(result);
@@ -789,6 +804,11 @@ export default function MediaSettings({ mediaItemId, open, onOpenChange, onChang
     if (dirty.includes('categories')) patch.categories = draft.categories;
     if (dirty.includes('cast')) patch.performers = draft.cast;
     if (dirty.includes('studio')) patch.studio = draft.studio.name;
+    if (dirty.includes('keepEdits') && draft.keepEdits) {
+      // Turning "Keep my edits" on keeps every field as it is now.
+      Object.assign(patch, { title: draft.title, description: draft.description, categories: draft.categories, performers: draft.cast, studio: draft.studio.name });
+    }
+    if (dirty.includes('keepEdits') || draft.keepEdits) patch.keepEdits = draft.keepEdits;
     setSaving(true);
     try {
       const result = await updateMediaMetadata(item.id, patch);
@@ -802,58 +822,32 @@ export default function MediaSettings({ mediaItemId, open, onOpenChange, onChang
     }
   }
 
-  function requestOpenChange(next) {
-    if (!next && dirty.length) setConfirmClose(true);
-    else onOpenChange(next);
-  }
-
-  const edited = key => dirty.includes(key) ? <span className="rs-pm-dirty" aria-label="Unsaved changes" /> : null;
-
-  return <Dialog open={open} onOpenChange={requestOpenChange}>
-    <DialogContent size="xl" className="rs-pm">
-      <DialogHeader className="rs-pm-header">
-        <DialogTitle>{item ? `${item.title} · settings` : 'Title settings'}</DialogTitle>
-        {form && <Button disabled={!canSave} onClick={save}>{saving ? 'Saving…' : 'Save'}</Button>}
-      </DialogHeader>
-      <DialogBody>
-        {!item && <p className="rs-pm-muted">Loading…</p>}
-        {item && form && <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="details">Details{(edited('title') || edited('description') || edited('categories'))}</TabsTrigger>
-            <TabsTrigger value="poster">Poster &amp; backdrop</TabsTrigger>
-            <TabsTrigger value="performers">Performers{edited('cast')}</TabsTrigger>
-            <TabsTrigger value="studio">Studio{edited('studio')}</TabsTrigger>
-            <TabsTrigger value="series">Series</TabsTrigger>
-            <TabsTrigger value="reel">Reel</TabsTrigger>
-            <TabsTrigger value="match">Match</TabsTrigger>
-            <TabsTrigger value="tracks">Audio &amp; subtitles</TabsTrigger>
-            <TabsTrigger value="file">File</TabsTrigger>
-          </TabsList>
-          <div className="rs-pm-panel">
-            <TabsContent value="details"><DetailsTab draft={form.draft} update={update} onSubmit={save} files={item.files} /></TabsContent>
-            <TabsContent value="poster"><PosterTab item={item} onChanged={changed} /></TabsContent>
-            <TabsContent value="performers"><PerformersTab draft={form.draft} update={update} /></TabsContent>
-            <TabsContent value="studio"><StudioTab draft={form.draft} update={update} /></TabsContent>
-            <TabsContent value="series"><SeriesTab item={item} onChanged={changed} /></TabsContent>
-            <TabsContent value="reel"><ReelTab item={item} onChanged={changed} /></TabsContent>
-            <TabsContent value="match"><MatchTab item={item} onMatched={changed} /></TabsContent>
-            <TabsContent value="tracks">{tab === 'tracks' && <MediaTracksTab item={item} />}</TabsContent>
-            <TabsContent value="file"><FileTab item={item} canDelete={canDelete} onDeleted={onDeleted} /></TabsContent>
-          </div>
-        </Tabs>}
-      </DialogBody>
-    </DialogContent>
-    <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
-          <AlertDialogDescription>Your edits to this title have not been saved.</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Keep editing</AlertDialogCancel>
-          <AlertDialogAction onClick={() => { setConfirmClose(false); onOpenChange(false); }}>Discard</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  </Dialog>;
+  const tabs = [
+    { value: 'details', label: 'Details', icon: FileText, dirty: dirty.some(k => ['title', 'description', 'categories', 'keepEdits'].includes(k)) },
+    { value: 'poster', label: 'Poster & backdrop', icon: ImageIcon },
+    { value: 'performers', label: 'Performers', icon: Users, dirty: dirty.includes('cast') },
+    { value: 'studio', label: 'Studio', icon: Building2, dirty: dirty.includes('studio') },
+    { value: 'series', label: 'Series', icon: ListVideo },
+    { value: 'reel', label: 'Reel', icon: Smartphone },
+    { value: 'match', label: 'Match', icon: Sparkles },
+    { value: 'tracks', label: 'Audio & subtitles', icon: Captions },
+    { value: 'file', label: 'File', icon: HardDrive },
+  ];
+  return <SettingsDialog open={open} onOpenChange={onOpenChange} vertical loading={!item || !form}
+    lead={item ? <img src={artworkUrl(item.id, 'thumbnail')} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} /> : null}
+    kicker="Title settings" title={item ? item.title : 'Loading…'}
+    dirty={dirty.length > 0} tabs={tabs} tab={tab} onTab={setTab}
+    onSave={save} canSave={canSave} saving={saving} note="Changes are written to the title’s NFO file.">
+      {item && form && <>
+        <TabsContent value="details"><DetailsTab draft={form.draft} update={update} onSubmit={save} files={item.files} /></TabsContent>
+        <TabsContent value="poster"><PosterTab item={item} onChanged={changed} /></TabsContent>
+        <TabsContent value="performers"><PerformersTab draft={form.draft} update={update} /></TabsContent>
+        <TabsContent value="studio"><StudioTab draft={form.draft} update={update} /></TabsContent>
+        <TabsContent value="series"><SeriesTab item={item} onChanged={changed} /></TabsContent>
+        <TabsContent value="reel"><ReelTab item={item} onChanged={changed} /></TabsContent>
+        <TabsContent value="match"><MatchTab item={item} onMatched={changed} /></TabsContent>
+        <TabsContent value="tracks">{tab === 'tracks' && <MediaTracksTab item={item} />}</TabsContent>
+        <TabsContent value="file"><FileTab item={item} canDelete={canDelete} onDeleted={onDeleted} /></TabsContent>
+      </>}
+  </SettingsDialog>;
 }

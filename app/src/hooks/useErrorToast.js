@@ -1,4 +1,4 @@
-import { useToast } from '@spatika/react';
+import { useToast } from '../ui';
 
 // Surfaces a caught API error as a danger toast, admin-wide.
 // Pass `id` to collapse repeated failures (e.g. a polling loop) into one toast

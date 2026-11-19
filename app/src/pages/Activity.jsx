@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { monogram } from '../components/Monogram';
 import { Link } from 'react-router-dom';
-import { Clock3, Film, Flame, Play, Sparkles, Timer } from 'lucide-react';
+import { CalendarDays, Clock3, Film, Flame, Play, Sparkles, Timer } from 'lucide-react';
+import { useLibrary } from '../libraryContext';
 import { artworkUrl, getWatchActivity, performerImageUrl } from '../api';
 import { timeAgo } from './timeUtil';
 import useRefetchOnFocus from '../hooks/useRefetchOnFocus';
@@ -46,15 +47,26 @@ function Sparkline({ values }) {
   </svg>;
 }
 
-function StatTile({ hue, icon: Icon, label, value, format = n => Math.round(n).toLocaleString(), suffix, foot, spark, ring, delay = 0 }) {
+// "▲ 22% vs previous 30 days" from this period and the one before it.
+function delta(now, before, days) {
+  if (!before && !now) return null;
+  const period = days === 365 ? 'year' : `${days} days`;
+  if (!before) return { text: `New this ${days === 365 ? 'year' : 'period'}`, up: true };
+  const pct = Math.round(((now - before) / before) * 100);
+  if (pct === 0) return { text: `Same as previous ${period}`, up: null };
+  return { text: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs previous ${period}`, up: pct > 0 };
+}
+
+function StatTile({ icon: Icon, label, value, format = n => Math.round(n).toLocaleString(), suffix, foot, change, spark, ring, delay = 0 }) {
   const shown = useCountUp(value);
-  return <div className="rs-stat" style={{ '--h': hue, '--d': `${delay}ms` }}>
+  return <div className="rs-stat" style={{ '--d': `${delay}ms` }}>
     <div className="rs-stat-top">
       <span className="rs-stat-icon"><Icon size={18} /></span>
       <span className="rs-stat-label">{label}</span>
       {ring != null && <svg className="rs-stat-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" /><circle className="rs-stat-ring-fill" cx="18" cy="18" r="15" pathLength="100" style={{ '--pct': Math.max(0, Math.min(100, ring)) }} /></svg>}
     </div>
     <strong className="rs-stat-value">{format(shown)}{suffix && <small>{suffix}</small>}</strong>
+    {change && <span className={`rs-stat-foot${change.up === true ? ' is-up' : change.up === false ? ' is-down' : ''}`}>{change.text}</span>}
     {foot && <span className="rs-stat-foot">{foot}</span>}
     {spark && <Sparkline values={spark} />}
   </div>;
@@ -157,6 +169,7 @@ function Ranking({ title, rows, unit, link, image }) {
 }
 
 export default function Activity() {
+  const { terms } = useLibrary();
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -171,30 +184,30 @@ export default function Activity() {
   const t = data?.totals;
   const dayPlays = data?.byDay.map(d => d.plays) || [];
   const dayWatch = data?.byDay.map(d => d.watchSeconds) || [];
+  const prev = data?.previous;
+  const streak = data?.streak;
   return <div className="rs-page rs-activity">
-    <header className="rs-page-header rs-act-header">
-      <div className="rs-act-headrow">
-        <div className="rs-act-title"><p className="rs-eyebrow">Activity</p><h1>Your watching</h1><p>Plays, watch time, and what you come back to most.</p></div>
-        <div className="rs-act-controls">
-          <div className="rs-act-ranges" role="group" aria-label="Time range">{RANGES.map(([d, label]) => <button key={d} type="button" className={d === days ? 'is-active' : ''} aria-pressed={d === days} onClick={() => setDays(d)}>{label}</button>)}</div>
-        </div>
-      </div>
+    <header className="rs-page-head">
+      <div><p className="rs-eyebrow">Activity</p><h1 className="rs-page-title">Your watching</h1><p className="rs-page-sub">Plays, watch time, and what you come back to most. Only you can see this.</p></div>
+      <div className="rs-act-ranges" role="group" aria-label="Time range">{RANGES.map(([d, label]) => <button key={d} type="button" className={d === days ? 'is-active' : ''} aria-pressed={d === days} onClick={() => setDays(d)}>{label}</button>)}</div>
     </header>
+    {loading && !data && <p className="rs-virtual-status">Loading your activity…</p>}
     {data && <div key={days}>
       <p className="rs-cheer"><Sparkles size={16} /> {cheer(t, days)}</p>
       <div className="rs-stats">
-        <StatTile hue={262} icon={Play} label="Plays" value={t.plays} spark={dayPlays} delay={0} />
-        <StatTile hue={178} icon={Clock3} label="Watch time" value={t.watchSeconds} format={duration} spark={dayWatch} delay={70} />
-        <StatTile hue={38} icon={Film} label="Unique titles" value={t.uniqueTitles} suffix={` / ${t.libraryTitles.toLocaleString()}`} ring={t.libraryTitles ? (t.uniqueTitles / t.libraryTitles) * 100 : 0} foot={t.libraryTitles ? `${Math.max(1, Math.round((t.uniqueTitles / t.libraryTitles) * 100))}% of your library` : undefined} delay={140} />
-        <StatTile hue={145} icon={Flame} label="Completed" value={t.completions} ring={t.plays ? (t.completions / t.plays) * 100 : 0} foot={t.plays ? `${Math.round((t.completions / t.plays) * 100)}% of plays finished` : undefined} delay={210} />
-        <StatTile hue={335} icon={Timer} label="Avg. session" value={t.avgSessionSeconds} format={duration} foot="per sitting" delay={280} />
+        <StatTile icon={Play} label="Plays" value={t.plays} change={prev ? delta(t.plays, prev.plays, days) : null} spark={dayPlays} delay={0} />
+        <StatTile icon={Clock3} label="Watch time" value={t.watchSeconds} format={duration} change={prev ? delta(t.watchSeconds, prev.watchSeconds, days) : null} spark={dayWatch} delay={70} />
+        <StatTile icon={Film} label="Unique titles" value={t.uniqueTitles} suffix={` / ${t.libraryTitles.toLocaleString()}`} ring={t.libraryTitles ? (t.uniqueTitles / t.libraryTitles) * 100 : 0} foot={t.libraryTitles ? `${Math.max(1, Math.round((t.uniqueTitles / t.libraryTitles) * 100))}% of your library` : undefined} delay={140} />
+        <StatTile icon={Flame} label="Completed" value={t.completions} ring={t.plays ? (t.completions / t.plays) * 100 : 0} foot={t.plays ? `${Math.round((t.completions / t.plays) * 100)}% of plays finished` : undefined} delay={210} />
+        <StatTile icon={Timer} label="Avg. session" value={t.avgSessionSeconds} format={duration} foot="per sitting" delay={280} />
+        {streak && <StatTile icon={CalendarDays} label="Streak" value={streak.current} format={n => `${Math.round(n)} ${Math.round(n) === 1 ? 'day' : 'days'}`} foot={streak.longest ? `Longest this year: ${streak.longest} ${streak.longest === 1 ? 'day' : 'days'}` : 'Watch today to start one'} delay={350} />}
       </div>
       <div className="rs-act-grid">
         <section className="rs-act-card rs-act-wide"><h2>Plays per day</h2><TrendChart data={data.byDay} /></section>
         <section className="rs-act-card rs-act-wide"><h2>Time of day</h2><HourChart counts={data.byHour} /></section>
-        <Ranking title="Most played performers" rows={data.performers} link={row => `/performers/${row.id}`} image />
-        <Ranking title="Top studios" rows={data.studios} link={row => `/studios/${row.id}`} />
-        <Ranking title="Top categories" rows={data.categories} link={row => `/categories/${row.id}`} />
+        <Ranking title={`Most played ${terms.people.toLowerCase()}`} rows={data.performers} link={row => `/performers/${row.id}`} image />
+        <Ranking title={`Top ${terms.studios.toLowerCase()}`} rows={data.studios} link={row => `/studios/${row.id}`} />
+        <Ranking title={`Top ${terms.categories.toLowerCase()}`} rows={data.categories} link={row => `/categories/${row.id}`} />
         <section className="rs-act-card rs-act-wide"><h2>Most played</h2>
           {data.mostPlayed.length ? <MediaList items={data.mostPlayed}
             meta={item => [item.studioName, (item.performers || []).slice(0, 2).join(', ')].filter(Boolean).join(' · ')}

@@ -71,6 +71,10 @@ type AppliedMatch struct {
 	Title       string  `json:"title"`
 	Site        string  `json:"site"`
 	Score       float64 `json:"score"`
+	// KeptFields are the hand-edited fields ("Keep my edits") written back after the match.
+	KeptFields []string `json:"keptFields,omitempty"`
+	// Kept holds their values, so the caller can bring the NFO files in line too.
+	Kept *KeptValues `json:"-"`
 }
 
 type MatchResult struct {
@@ -536,6 +540,10 @@ func (e *Engine) ApplyReplacing(ctx context.Context, mediaFileID int64, provider
 	if err != nil {
 		return AppliedMatch{}, err
 	}
+	kept, err := e.snapshotKept(ctx, loc.mediaItemID)
+	if err != nil {
+		return AppliedMatch{}, err
+	}
 	clear := `
 		WITH p AS (DELETE FROM media_item_performer WHERE media_item_id = $1),
 		     c AS (DELETE FROM media_item_category WHERE media_item_id = $1)
@@ -552,6 +560,13 @@ func (e *Engine) ApplyReplacing(ctx context.Context, mediaFileID int64, provider
 		restore()
 		e.restoreLinks(context.WithoutCancel(ctx), loc.mediaItemID, links)
 		return AppliedMatch{}, err
+	}
+	if kept != nil {
+		if err := e.restoreKept(context.WithoutCancel(ctx), loc.mediaItemID, kept); err != nil {
+			return applied, fmt.Errorf("match applied, but restoring your kept edits failed: %w", err)
+		}
+		applied.KeptFields = kept.Fields
+		applied.Kept = kept
 	}
 	return applied, nil
 }

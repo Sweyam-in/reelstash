@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, Input, useToast } from '@spatika/react';
+import { Button, Input, useToast } from '../ui';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, KeyRound, LockKeyhole, MonitorSmartphone, ShieldCheck, Smartphone, Tablet, Tv } from 'lucide-react';
 import { approveDevicePairing, getDevices, lookupDevicePairing, revokeDevice } from '../api';
 

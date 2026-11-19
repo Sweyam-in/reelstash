@@ -32,6 +32,7 @@ const System = page(() => import('./console/pages/SystemPage'), 'SystemPage');
 const Analytics = page(() => import('./console/pages/AnalyticsPage'), 'AnalyticsPage');
 const Review = page(() => import('./console/pages/ReviewPage'), 'ReviewPage');
 const Duplicates = page(() => import('./console/pages/DuplicatesPage'), 'DuplicatesPage');
+const DVDs = page(() => import('./console/pages/DVDsPage'), 'DVDsPage');
 const Automation = page(() => import('./console/pages/AutomationPage'), 'AutomationPage');
 const Housekeeping = page(() => import('./console/pages/HousekeepingPage'), 'HousekeepingPage');
 const Plugins = page(() => import('./console/pages/PluginsPage'), 'PluginsPage');
@@ -63,6 +64,7 @@ function Routed() {
       <Route path="/admin/analytics" element={<Analytics />} />
       <Route path="/admin/review" element={<Review />} />
       <Route path="/admin/duplicates" element={<Duplicates />} />
+      <Route path="/admin/dvds" element={<DVDs />} />
       <Route path="/admin/automation" element={<Automation />} />
       <Route path="/admin/housekeeping" element={<Housekeeping />} />
       <Route path="/admin/plugins" element={<Plugins />} />

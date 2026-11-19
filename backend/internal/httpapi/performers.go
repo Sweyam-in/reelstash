@@ -14,17 +14,21 @@ import (
 )
 
 type performer struct {
-	ID             int64           `json:"id"`
-	Name           string          `json:"name"`
-	DisplayName    *string         `json:"displayName,omitempty"`
-	ProfileImageID *int64          `json:"profileImageId,omitempty"`
-	Notes          *string         `json:"notes,omitempty"`
-	Favorite       bool            `json:"favorite"`
-	Aliases        []string        `json:"aliases,omitempty"`
-	MediaCount     int64           `json:"mediaCount"`
-	MatchStatus    string          `json:"matchStatus,omitempty"`
-	Metadata       json.RawMessage `json:"metadata,omitempty"`
-	Links          json.RawMessage `json:"links,omitempty"`
+	ID             int64    `json:"id"`
+	Name           string   `json:"name"`
+	DisplayName    *string  `json:"displayName,omitempty"`
+	ProfileImageID *int64   `json:"profileImageId,omitempty"`
+	Notes          *string  `json:"notes,omitempty"`
+	Favorite       bool     `json:"favorite"`
+	Aliases        []string `json:"aliases,omitempty"`
+	MediaCount     int64    `json:"mediaCount"`
+	// UnwatchedCount is how many of those titles this user has not watched (lists only).
+	UnwatchedCount *int64 `json:"unwatchedCount,omitempty"`
+	// Notify is true when this user asked to hear about new titles with this person.
+	Notify      bool            `json:"notify"`
+	MatchStatus string          `json:"matchStatus,omitempty"`
+	Metadata    json.RawMessage `json:"metadata,omitempty"`
+	Links       json.RawMessage `json:"links,omitempty"`
 }
 
 func (a *API) listPerformers(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +74,21 @@ func (a *API) listPerformers(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("favorite") == "true" {
 		conds = append(conds, performerFavorite("p", user.ID))
 	}
+	if r.URL.Query().Get("notify") == "true" {
+		conds = append(conds, performerNotify("p", user.ID))
+	}
+	// needsPhoto lists people with no picture yet.
+	if r.URL.Query().Get("needsPhoto") == "true" {
+		conds = append(conds, `p.profile_image_id IS NULL`)
+	}
+	// recent lists people in titles this user has played, the latest first.
+	lastPlayed := `(SELECT MAX(rps.updated_at) FROM playback_state rps JOIN media_item_performer rmp ON rmp.media_item_id = rps.media_item_id WHERE rmp.performer_id = p.id AND rps.user_id = ` + strconv.FormatInt(user.ID, 10) + `)`
+	if r.URL.Query().Get("recent") == "true" {
+		conds = append(conds, lastPlayed+` IS NOT NULL`)
+		if search == "" {
+			order = lastPlayed + ` DESC, p.name`
+		}
+	}
 	if letter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("letter"))); letter == "#" {
 		conds = append(conds, `UPPER(LEFT(p.name, 1)) !~ '[A-Z]'`)
 	} else if len(letter) == 1 && letter[0] >= 'A' && letter[0] <= 'Z' {
@@ -89,11 +108,16 @@ func (a *API) listPerformers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to count performers")
 		return
 	}
+	// How many of each person's titles this user has not watched, within the browsed library.
+	uArg := func(v any) string { args = append(args, v); return "$" + strconv.Itoa(len(args)) }
+	unwatched := `(SELECT COUNT(*) FROM ` + credits + ` u JOIN media_item mi2 ON mi2.id = u.media_item_id
+		WHERE u.performer_id = p.id` + strings.ReplaceAll(roleCond, "mip.", "u.") + ` AND ` + visibleMediaCond(r, "mi2", uArg) + `
+		AND mi2.watched = FALSE AND NOT EXISTS (SELECT 1 FROM playback_state us WHERE us.media_item_id = mi2.id AND us.user_id = ` + strconv.FormatInt(user.ID, 10) + ` AND us.completed = TRUE))`
 	args = append(args, limit, offset)
 	limitArg := len(args) - 1
 	rows, err := a.DB.Query(r.Context(), `
 		SELECT p.id, p.name, p.display_name, p.profile_image_id, p.notes, `+performerFavorite("p", user.ID)+`, p.match_status,
-		       COUNT(mip.media_item_id) AS media_count
+		       COUNT(mip.media_item_id) AS media_count, `+unwatched+` AS unwatched_count, `+performerNotify("p", user.ID)+`
 		FROM performer p
 		`+mediaJoin+`
 		`+where+`
@@ -110,10 +134,12 @@ func (a *API) listPerformers(w http.ResponseWriter, r *http.Request) {
 	items := []performer{}
 	for rows.Next() {
 		var p performer
-		if err := rows.Scan(&p.ID, &p.Name, &p.DisplayName, &p.ProfileImageID, &p.Notes, &p.Favorite, &p.MatchStatus, &p.MediaCount); err != nil {
+		var unwatchedCount int64
+		if err := rows.Scan(&p.ID, &p.Name, &p.DisplayName, &p.ProfileImageID, &p.Notes, &p.Favorite, &p.MatchStatus, &p.MediaCount, &unwatchedCount, &p.Notify); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to read performer")
 			return
 		}
+		p.UnwatchedCount = &unwatchedCount
 		items = append(items, p)
 	}
 
@@ -175,13 +201,13 @@ func (a *API) getPerformer(w http.ResponseWriter, r *http.Request) {
 	args := []any{id}
 	arg := func(v any) string { args = append(args, v); return "$" + strconv.Itoa(len(args)) }
 	row := a.DB.QueryRow(r.Context(), `
-		SELECT id, name, display_name, profile_image_id, notes, `+performerFavorite("performer", currentUserID(r))+`, match_status, remote_metadata,
+		SELECT id, name, display_name, profile_image_id, notes, `+performerFavorite("performer", currentUserID(r))+`, match_status, remote_metadata, `+performerNotify("performer", currentUserID(r))+`,
 		       (SELECT COUNT(DISTINCT mi.id) FROM (SELECT media_item_id, performer_id FROM media_item_performer UNION ALL SELECT media_item_id, performer_id FROM media_item_crew) mip
 		        JOIN media_item mi ON mi.id = mip.media_item_id
 		        WHERE mip.performer_id = performer.id AND `+visibleMediaCond(r, "mi", arg)+`)
 		FROM performer WHERE id = $1
 	`, args...)
-	if err := row.Scan(&p.ID, &p.Name, &p.DisplayName, &p.ProfileImageID, &p.Notes, &p.Favorite, &p.MatchStatus, &metadata, &p.MediaCount); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &p.DisplayName, &p.ProfileImageID, &p.Notes, &p.Favorite, &p.MatchStatus, &metadata, &p.Notify, &p.MediaCount); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "performer not found")
 			return
@@ -307,6 +333,35 @@ func (a *API) setPerformerFavorite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "favorite": req.Favorite})
+}
+
+// setPerformerNotify turns "tell me about new titles with this person" on or off for the signed-in user.
+func (a *API) setPerformerNotify(w http.ResponseWriter, r *http.Request) {
+	id, err := pathInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid performer id")
+		return
+	}
+	var req struct {
+		Notify bool `json:"notify"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "notify is required")
+		return
+	}
+	if !a.entityAccessible(r, performerMediaExists, id) {
+		writeError(w, http.StatusNotFound, "performer not found")
+		return
+	}
+	query := `DELETE FROM performer_notify WHERE user_id = $1 AND performer_id = $2`
+	if req.Notify {
+		query = `INSERT INTO performer_notify (user_id, performer_id) SELECT $1, id FROM performer WHERE id = $2 ON CONFLICT DO NOTHING`
+	}
+	if _, err := a.DB.Exec(r.Context(), query, currentUserID(r), id); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update notifications")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "notify": req.Notify})
 }
 
 const maxPerformerUploadBytes = 8 << 20
@@ -480,6 +535,10 @@ const emptyPerformers = `NOT EXISTS (SELECT 1 FROM performer_favorite pf WHERE p
 // queries sharing their bind params with a COUNT query stay valid.
 func performerFavorite(alias string, userID int64) string {
 	return `EXISTS (SELECT 1 FROM performer_favorite pf WHERE pf.performer_id = ` + alias + `.id AND pf.user_id = ` + strconv.FormatInt(userID, 10) + `)`
+}
+
+func performerNotify(alias string, userID int64) string {
+	return `EXISTS (SELECT 1 FROM performer_notify pn WHERE pn.performer_id = ` + alias + `.id AND pn.user_id = ` + strconv.FormatInt(userID, 10) + `)`
 }
 
 func currentUserID(r *http.Request) int64 {

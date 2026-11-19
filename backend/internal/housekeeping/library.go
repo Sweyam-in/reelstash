@@ -79,9 +79,9 @@ func (r *runner) walkLibraries() (*mediaWalk, error) {
 	rows, err := r.db().Query(r.ctx, `
 		SELECT sl.id, sl.name, sl.mount_path, lr.path,
 		       EXISTS (SELECT 1 FROM scan_job sj WHERE sj.storage_location_id = sl.id AND sj.completed_at IS NULL)
-		       OR EXISTS (SELECT 1 FROM background_job bj WHERE bj.kind IN ('SCAN', 'ORGANIZE', 'MP4_REPAIR')
+		       OR EXISTS (SELECT 1 FROM background_job bj WHERE bj.kind IN ('SCAN', 'ORGANIZE', 'MP4_REPAIR', 'DVD_CONVERT')
 		                  AND bj.status IN ('PENDING', 'RUNNING')
-		                  AND (bj.payload->>'storageLocationId' = sl.id::text OR bj.kind = 'MP4_REPAIR'))
+		                  AND (bj.payload->>'storageLocationId' = sl.id::text OR bj.kind IN ('MP4_REPAIR', 'DVD_CONVERT')))
 		FROM library_root lr JOIN storage_location sl ON sl.id = lr.storage_location_id
 		ORDER BY sl.id, lr.path`)
 	if err != nil {

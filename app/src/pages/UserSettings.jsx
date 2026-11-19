@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Input, useToast } from '@spatika/react';
+import { Button, Input, useToast } from '../ui';
 import { Clapperboard, Lock, LockKeyhole, Moon, Sun } from 'lucide-react';
 import { changeMyPassword, exportLibrary, getPreferences, getSession, importLibrary, setAppLockSettings, updatePreferences } from '../api';
 import { resetPreferenceCache } from './hooks/useMediaTracks';
@@ -21,7 +21,7 @@ function themePreference() {
   let saved = null;
   try { saved = localStorage.getItem(THEME_KEY) || localStorage.getItem('reelstash-media-theme'); } catch { /* storage blocked */ }
   if (saved === 'system') return 'system';
-  return saved === MEDIA_LIGHT || saved === 'usha' ? 'light' : 'dark';
+  return saved === MEDIA_LIGHT || saved === 'mukta' || saved === 'usha' ? 'light' : 'dark';
 }
 
 // The theme to render now: the saved choice, following the OS when it is "system".
@@ -39,9 +39,12 @@ function saveThemePreference(pref) {
 const idleLabel = m => m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`;
 const modeIcon = mode => mode === 'private' ? Lock : Clapperboard;
 
+const sectionId = title => `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+const NAV = ['Default library', 'Theme', 'Title artwork', 'Audio and subtitles', 'PIN lock', 'Your library data', 'Devices', 'Password'];
+
 function Section({ title, description, children }) {
-  return <section className="rs-user-settings-section">
-    <header><h2>{title}</h2>{description && <p>{description}</p>}</header>
+  return <section className="rs-user-settings-section" id={sectionId(title)} aria-labelledby={`${sectionId(title)}-title`}>
+    <header><h2 id={`${sectionId(title)}-title`}>{title}</h2>{description && <p>{description}</p>}</header>
     <div className="rs-user-settings-body">{children}</div>
   </section>;
 }
@@ -288,7 +291,8 @@ function LibraryData() {
 
 export default function UserSettings() {
   return <div className="rs-page rs-user-settings">
-    <header className="rs-page-header"><div><p className="rs-eyebrow">Your account</p><h1>Settings</h1><p>These apply only to you.</p></div></header>
+    <header className="rs-page-head"><div><p className="rs-eyebrow">Your account</p><h1 className="rs-page-title">Settings</h1><p className="rs-page-sub">These apply only to you, on every device.</p></div></header>
+    <nav className="rs-settings-nav" aria-label="Settings sections">{NAV.map(title => <a key={title} href={`#${sectionId(title)}`} onClick={event => { const target = document.getElementById(sectionId(title)); if (target) { event.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{title}</a>)}</nav>
     <Section title="Default library" description="The library ReelStash opens on. You can still switch any time from the bottom of the sidebar."><DefaultLibrary /></Section>
     <Section title="Theme"><Theme /></Section>
     <Section title="Title artwork" description="Posters or thumbnails on title cards, on every page."><TitleArtwork /></Section>

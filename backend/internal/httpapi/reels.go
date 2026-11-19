@@ -19,6 +19,17 @@ func reelCond(alias string) string {
 	return `(CASE WHEN ` + alias + `.reel_override IS NOT NULL THEN ` + alias + `.reel_override ELSE ` + reelDetected(alias) + ` END)`
 }
 
+// landscapeCond only includes titles whose playback file has measurable
+// landscape dimensions. It intentionally ignores reel overrides: a portrait
+// file remains out of Videos even if an admin hides it from Reels.
+func landscapeCond(alias string) string {
+	return `EXISTS (SELECT 1 FROM media_file lf WHERE lf.media_item_id = ` + alias + `.id AND lf.available
+		AND lf.width IS NOT NULL AND lf.height IS NOT NULL
+		AND (CASE WHEN lf.rotation IN (90, 270) THEN lf.height > lf.width ELSE lf.width > lf.height END)
+		AND lf.id = (SELECT pf.id FROM media_file pf WHERE pf.media_item_id = ` + alias + `.id AND pf.available
+			ORDER BY pf.height DESC NULLS LAST, pf.file_size DESC LIMIT 1))`
+}
+
 // setMediaReel sets or clears (null) the admin's reel override for a title.
 func (a *API) setMediaReel(w http.ResponseWriter, r *http.Request) {
 	id, err := pathInt64(r, "id")

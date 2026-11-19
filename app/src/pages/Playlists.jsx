@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Check, Film, GripVertical, ListVideo, Pencil, Pin, PinOff, Play, Plus, Search, Shuffle, Sparkles, Trash2 } from 'lucide-react';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, useToast } from '@spatika/react';
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, useToast } from '../ui';
 import { addCollectionItem, artworkUrl, createCollection, deleteCollection, getCollection, getCollections, getMediaItems, moveCollectionItem, removeCollectionItem, setCollectionPinned, updateCollection } from '../api';
 import SmartRulesEditor from '../components/SmartRulesEditor';
 import { describeCondition, emptyRules, fromServerRules, toServerRules, validateRules } from '../smartRules';

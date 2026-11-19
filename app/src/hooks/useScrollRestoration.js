@@ -7,10 +7,8 @@ const cache = new Map();
 const MAX_ATTEMPTS = 30;
 
 function scrollHost() {
-  // The AppShell's own wrapper (.spk-app-main, which holds the sticky top bar and the
-  // <main class="spk-app-content">) is what actually scrolls — not the window, and not
-  // .spk-app-content itself.
-  return document.querySelector('.spk-app-main') || document.scrollingElement;
+  // The app frame scrolls the document itself (the top bar and sidebar are sticky).
+  return document.scrollingElement || document.documentElement;
 }
 
 function storageKey(key) { return `rs-scroll:${key}`; }

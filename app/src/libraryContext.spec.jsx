@@ -56,7 +56,7 @@ describe('LibraryProvider', () => {
     getMyLibraries.mockResolvedValue({ items: [films, vault], defaultLibraryId: 2 });
     mount();
     expect(await screen.findByTestId('library')).toHaveTextContent('Vault');
-    expect(screen.getByTestId('person')).toHaveTextContent('Performer');
+    expect(screen.getByTestId('person')).toHaveTextContent('Person');
   });
 
   it('remembers a switch for the rest of the tab session', async () => {

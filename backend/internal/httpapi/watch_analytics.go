@@ -166,7 +166,19 @@ func (a *API) watchActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	streak, err := a.activityStreakFor(ctx, user.ID, libraryIDs, time.Now())
+	if err != nil {
+		fail()
+		return
+	}
+	previous, err := a.activityPreviousFor(ctx, user.ID, libraryIDs, since, days)
+	if err != nil {
+		fail()
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"streak":     streak,
+		"previous":   previous,
 		"days":       days,
 		"totals":     t,
 		"byDay":      byDay,

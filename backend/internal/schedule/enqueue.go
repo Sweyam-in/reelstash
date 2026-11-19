@@ -15,6 +15,9 @@ var (
 	ErrScanRunning = errors.New("a scan is already running for this storage location")
 	// ErrOrganizing means the organizer is moving files on the storage location.
 	ErrOrganizing = errors.New("the organizer is moving files on this storage location; scan once it finishes")
+	// ErrConverting means a DVD VIDEO_TS folder is being turned into MP4s, so a
+	// scan would index a half-written file.
+	ErrConverting = errors.New("DVD videos are being converted to MP4; scan once that finishes")
 )
 
 // EnqueueScan queues an async SCAN job for a storage location. It refuses to
@@ -50,6 +53,13 @@ func checkScannable(ctx context.Context, db database.DB, storageLocationID int64
 	`, storageLocationID).Scan(&organizing)
 	if organizing {
 		return ErrOrganizing
+	}
+	var converting bool
+	_ = db.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM background_job WHERE kind = 'DVD_CONVERT' AND status IN ('PENDING','RUNNING'))
+	`).Scan(&converting)
+	if converting {
+		return ErrConverting
 	}
 	return nil
 }

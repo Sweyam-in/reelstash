@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dices } from 'lucide-react';
-import { Button, useToast } from '@spatika/react';
+import { Button, useToast } from '../ui';
 import { fetchRandomTitles } from '../queueActions';
 
 // Header button that opens one random title: a low-effort way in when you don't know what you want.

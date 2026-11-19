@@ -392,6 +392,17 @@ ALTER TABLE performer DROP CONSTRAINT IF EXISTS performer_match_status_check;
 ALTER TABLE performer ADD CONSTRAINT performer_match_status_check
   CHECK (match_status IN ('unmatched', 'matched', 'no_match', 'ambiguous', 'rejected'));
 
+-- Earlier installations named this column porndb_id. Rename it in place so
+-- rejected matches survive the move to provider-neutral external IDs.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'performer_rejected_match' AND column_name = 'porndb_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_schema = 'public' AND table_name = 'performer_rejected_match' AND column_name = 'external_id') THEN
+    ALTER TABLE performer_rejected_match RENAME COLUMN porndb_id TO external_id;
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS performer_rejected_match (
     performer_id BIGINT NOT NULL REFERENCES performer(id) ON DELETE CASCADE,
     external_id TEXT NOT NULL,
@@ -1387,3 +1398,40 @@ CREATE TABLE IF NOT EXISTS webhook_delivery (
     duration_ms INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS webhook_delivery_hook ON webhook_delivery (webhook_id, id DESC);
+
+-- DVD VIDEO_TS folders a scan has noticed. A scan only records them; an admin
+-- converts a chosen disc to MP4 afterwards. The VOB files stay on disk.
+CREATE TABLE IF NOT EXISTS dvd_disc (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    storage_location_id BIGINT NOT NULL REFERENCES storage_location(id) ON DELETE CASCADE,
+    relative_path TEXT NOT NULL,
+    title_count INTEGER NOT NULL DEFAULT 0,
+    file_size BIGINT NOT NULL DEFAULT 0,
+    available BOOLEAN NOT NULL DEFAULT TRUE,
+    missing_since TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (storage_location_id, relative_path)
+);
+CREATE INDEX IF NOT EXISTS dvd_disc_storage ON dvd_disc (storage_location_id);
+
+-- ===== keep my edits =====
+-- Fields of a title a person edited by hand and asked to keep: a metadata match or rescan
+-- writes them back afterwards instead of replacing them.
+CREATE TABLE IF NOT EXISTS media_item_field_lock (
+    media_item_id BIGINT NOT NULL REFERENCES media_item(id) ON DELETE CASCADE,
+    field TEXT NOT NULL CHECK (field IN ('title', 'description', 'studio', 'categories', 'performers')),
+    locked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (media_item_id, field)
+);
+
+-- ===== performer_notify =====
+-- People a user wants to hear about: titles with them in the cast appear in that user's new-title notifications.
+CREATE TABLE IF NOT EXISTS performer_notify (
+    user_id      BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    performer_id BIGINT NOT NULL REFERENCES performer(id) ON DELETE CASCADE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, performer_id)
+);
+CREATE INDEX IF NOT EXISTS performer_notify_performer ON performer_notify (performer_id);

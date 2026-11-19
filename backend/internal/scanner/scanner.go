@@ -105,6 +105,7 @@ func (s *Scanner) RegisterJobs() {
 	s.Jobs.Register("REMOVE_MISSING", s.handleRemoveMissingJob)
 	s.Jobs.Register("MP4_REPAIR", s.handleMP4RepairJob)
 	s.Jobs.Register("TRACK_SCAN", s.handleTrackScanJob)
+	s.Jobs.Register(DVDConvertJobKind, s.handleDVDConvertJob)
 	s.ThumbnailJobs.Register("THUMBNAIL", s.handleThumbnailJob)
 	s.ThumbnailJobs.Register("SPRITE", s.handleSpriteJob)
 	s.ThumbnailJobs.Register("PREVIEW", s.handlePreviewJob)

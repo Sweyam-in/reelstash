@@ -85,6 +85,13 @@ test('resultSummary turns generic numeric results into words', () => {
   assert.equal(resultSummary({ status: 'COMPLETED', kind: 'X' }), 'Completed');
 });
 
+test('resultSummary describes a DVD conversion', () => {
+  const done = { kind: 'DVD_CONVERT', status: 'COMPLETED' };
+  assert.equal(resultSummary({ ...done, result: { converted: 2, skipped: 0, failed: 0 } }), '2 converted');
+  assert.equal(resultSummary({ ...done, result: { converted: 1, skipped: 1, failed: 1 } }), '1 converted · 1 skipped · 1 failed');
+  assert.equal(jobTitle('DVD_CONVERT'), 'Convert DVD');
+});
+
 test('resultSummary describes a missing-titles cleanup', () => {
   const done = { kind: 'REMOVE_MISSING', status: 'COMPLETED' };
   assert.equal(resultSummary({ ...done, result: { removedTitles: 17, removedFiles: 17, kept: 0, skippedLocationCount: 0, skippedLocations: [] } }), '17 titles removed · 17 missing files cleared');

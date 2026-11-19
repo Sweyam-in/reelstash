@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useToast } from '@spatika/react';
+import { useToast } from '../ui';
 import { getNotifications, markNotificationsRead } from '../api';
 import { useServerEvent } from '../events';
 

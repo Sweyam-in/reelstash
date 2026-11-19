@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Badge, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, useToast } from '@spatika/react';
+import { Badge, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, useToast } from '../ui';
 import { ChevronDown, Download, ExternalLink, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { deleteSubtitle, downloadSubtitle, getPreferences, getSubtitleProvider, getTracks, refreshTracks, searchSubtitles } from '../api';
 import { adminHref } from '../appLinks';
