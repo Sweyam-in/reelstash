@@ -9,7 +9,7 @@ import { FilterChip, FilterPanel, FilterSelect } from '../../components/FilterCo
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 import { useColumnCount, useInfiniteList, VirtualWindow } from '../../virtual';
-import { cardMetrics, useCardStyle } from '../../cardStyle';
+import { cardMetrics, useCardDensity, useCardStyle } from '../../cardStyle';
 import { ratingFromStars, MediaCard, Status, useStudioNames, PlayButtons, mediaQuery, WATCHED_FILTERS, PerformerCard } from './shared';
 
 export function SearchPerformers({ query, favoritesOnly = false, full = false, onMore }) {
@@ -103,7 +103,8 @@ export function Catalog({ type = 'library' }) {
   const showPerformers = (type === 'search' || type === 'favorites') && tab !== 'videos';
   const showVideos = tab !== 'performers';
   const [cardStyle] = useCardStyle();
-  const cards = cardMetrics(cardStyle);
+  const [cardDensity] = useCardDensity();
+  const cards = cardMetrics(cardStyle, cardDensity);
   const minColumn = useColumnCount(cards.wideColumn, cards.narrowColumn, '(max-width: 640px)');
   const kindFilter = type === 'library' && mediaKind !== 'all' ? { reels: String(mediaKind === 'reels') } : {};
   const filters = useMemo(() => ({

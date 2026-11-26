@@ -9,7 +9,7 @@ import SeriesCover from '../../components/SeriesCover';
 import { FilterSelect } from '../../components/FilterControls';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 import { useColumnCount, useInfiniteList, VirtualWindow } from '../../virtual';
-import { cardMetrics, useCardStyle } from '../../cardStyle';
+import { cardMetrics, useCardDensity, useCardStyle } from '../../cardStyle';
 import { editInAdmin } from '../../appLinks';
 import { useMediaList, displayTitle, toneClass, formatRuntime, Artwork, MediaCard, Shelf, HERO_SLIDE_COUNT, HeroCarousel, Status, plural, useStudioNames, PlayButtons, mediaQuery, WATCHED_FILTERS, dimensionTerms, dimensions, DirectoryMark, countLabel, hashString } from './shared';
 
@@ -125,7 +125,8 @@ export function BrowseDetail({ type }) {
   const { toast } = useToast();
   const { name: id } = useParams();
   const [cardStyle] = useCardStyle();
-  const cards = cardMetrics(cardStyle);
+  const [cardDensity] = useCardDensity();
+  const cards = cardMetrics(cardStyle, cardDensity);
   const minColumn = useColumnCount(cards.wideColumn, cards.narrowColumn, '(max-width: 640px)');
   const [similar, setSimilar] = useState([]);
   useEffect(() => {

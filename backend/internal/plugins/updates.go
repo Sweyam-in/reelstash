@@ -27,11 +27,12 @@ type Release struct {
 
 // IndexEntry is one plugin in an update index.
 type IndexEntry struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Kind     Kind      `json:"kind"`
-	Latest   string    `json:"latest"`
-	Versions []Release `json:"versions"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Kind        Kind      `json:"kind"`
+	Description string    `json:"description,omitempty"`
+	Latest      string    `json:"latest"`
+	Versions    []Release `json:"versions"`
 }
 
 type index struct {
@@ -211,26 +212,9 @@ func (m *Manager) Update(ctx context.Context, id string) (Info, error) {
 		return Info{}, err
 	}
 	entry, _ := idx.entry(id)
-	var rel *Release
-	for i := range entry.Versions {
-		if entry.Versions[i].Version == info.Latest {
-			rel = &entry.Versions[i]
-		}
-	}
-	if rel == nil || rel.File == "" {
-		return Info{}, fmt.Errorf("the update source lists %s %s without a file", id, info.Latest)
-	}
-	ref, err := url.Parse(rel.File)
-	if err != nil {
-		return Info{}, errors.New("the update source lists an invalid file address")
-	}
-	data, err := Download(ctx, base.ResolveReference(ref).String())
+	data, err := downloadRelease(ctx, base, entry, info.Latest)
 	if err != nil {
 		return Info{}, err
-	}
-	sum := sha256.Sum256(data)
-	if !strings.EqualFold(hex.EncodeToString(sum[:]), strings.TrimSpace(rel.SHA256)) {
-		return Info{}, errors.New("the download does not match the checksum in the update source; nothing was installed")
 	}
 	got, err := m.InstallZip(ctx, data)
 	if err != nil {
@@ -240,4 +224,34 @@ func (m *Manager) Update(ctx context.Context, id string) (Info, error) {
 		return Info{}, fmt.Errorf("the download is plugin %q, not %q", got.ID, id)
 	}
 	return got, nil
+}
+
+// downloadRelease fetches one listed version of a plugin and checks it against
+// the sha256 the index gives.
+func downloadRelease(ctx context.Context, base *url.URL, entry IndexEntry, version string) ([]byte, error) {
+	var rel *Release
+	for i := range entry.Versions {
+		if entry.Versions[i].Version == version {
+			rel = &entry.Versions[i]
+		}
+	}
+	if rel == nil || rel.File == "" {
+		return nil, fmt.Errorf("the plugin index lists %s %s without a file", entry.ID, version)
+	}
+	if strings.TrimSpace(rel.SHA256) == "" {
+		return nil, fmt.Errorf("the plugin index lists %s %s without a checksum; nothing was installed", entry.ID, version)
+	}
+	ref, err := url.Parse(rel.File)
+	if err != nil {
+		return nil, errors.New("the plugin index lists an invalid file address")
+	}
+	data, err := Download(ctx, base.ResolveReference(ref).String())
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(data)
+	if !strings.EqualFold(hex.EncodeToString(sum[:]), strings.TrimSpace(rel.SHA256)) {
+		return nil, errors.New("the download does not match the checksum in the plugin index; nothing was installed")
+	}
+	return data, nil
 }

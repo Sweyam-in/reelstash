@@ -11,6 +11,7 @@ import { describeError } from '../lib/errors';
 import { useNotify } from '../lib/notify';
 import { useResource } from '../lib/useResource';
 import { useUrlState } from '../lib/useUrlState';
+import PluginCatalog from './PluginCatalog';
 
 const KIND_LABEL = { provider: 'Metadata provider', auth: 'Sign-in method' };
 const STATUS = {
@@ -231,6 +232,7 @@ export function PluginsPage() {
               <TableBody>{items.map(plugin => <PluginRow key={plugin.id} plugin={plugin} busy={busyId === plugin.id} onToggle={toggle} onOpen={id => setFilters({ plugin: id })} onChanged={reload} />)}</TableBody>
             </Table></div>}
     </Panel>
+    {data && <PluginCatalog enabled={data.enabled} onInstalled={reload} />}
     {data && <InstallDialog data={data} open={adding} onOpenChange={setAdding} onInstalled={reload} />}
     {filters.plugin && openPlugin && <PluginDrawer plugin={openPlugin} onChanged={reload} onClose={() => setFilters({ plugin: '' })} />}
   </PageStack>;

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Input, useToast } from '../ui';
-import { Clapperboard, Lock, LockKeyhole, Moon, Sun } from 'lucide-react';
+import { Clapperboard, Lock, LockKeyhole, Moon, Sun, Grid3x3, LayoutGrid, Square } from 'lucide-react';
 import { changeMyPassword, exportLibrary, getPreferences, getSession, importLibrary, setAppLockSettings, updatePreferences } from '../api';
 import { resetPreferenceCache } from './hooks/useMediaTracks';
 import { useAppLock } from '../components/AppLock';
 import { useLibrary } from '../libraryContext';
 import { LIBRARY_MODES } from '../libraryModes';
 import { MEDIA_DARK, MEDIA_LIGHT } from '../shell';
-import { useCardStyle } from '../cardStyle';
+import { useCardDensity, useCardStyle } from '../cardStyle';
 import { DeviceList, LinkDeviceForm } from '../components/Devices';
 
 // The media app's own settings, per user: which library it opens on, its theme, and what the PIN
@@ -96,6 +96,15 @@ function TitleArtwork() {
   return <SettingsOptions label="Title artwork" value={style} onChange={setStyle} options={[
     { value: 'poster', label: 'Posters', hint: 'Tall artwork', icon: <span className="rs-user-settings-shape is-poster" /> },
     { value: 'thumbnail', label: 'Thumbnails', hint: 'Wide artwork', icon: <span className="rs-user-settings-shape is-thumb" /> },
+  ]} />;
+}
+
+function GridDensity() {
+  const [density, setDensity] = useCardDensity();
+  return <SettingsOptions label="Grid size" value={density} onChange={setDensity} options={[
+    { value: 'compact', label: 'Compact', hint: 'More titles per row', icon: <Grid3x3 size={18} /> },
+    { value: 'comfortable', label: 'Comfortable', hint: 'The default', icon: <LayoutGrid size={18} /> },
+    { value: 'large', label: 'Large', hint: 'Bigger artwork', icon: <Square size={18} /> },
   ]} />;
 }
 
@@ -296,6 +305,7 @@ export default function UserSettings() {
     <Section title="Default library" description="The library ReelStash opens on. You can still switch any time from the bottom of the sidebar."><DefaultLibrary /></Section>
     <Section title="Theme"><Theme /></Section>
     <Section title="Title artwork" description="Posters or thumbnails on title cards, on every page."><TitleArtwork /></Section>
+    <Section title="Grid size" description="How large title cards are in library grids, on this device."><GridDensity /></Section>
     <Section title="Audio and subtitles" description="Which language to play in, and when to show subtitles. You can still change both from the player."><PlaybackLanguages /></Section>
     <Section title="PIN lock" description="Keep the app, or just some libraries, behind a PIN on this account."><PinLock /></Section>
     <LibraryData />

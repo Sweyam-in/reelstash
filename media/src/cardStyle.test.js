@@ -23,3 +23,12 @@ test('thumbnail mode is one landscape size and stays saved', () => {
   saveCardStyle('anything-else');
   assert.equal(readCardStyle(), 'poster');
 });
+
+test('grid density scales the card columns and defaults to comfortable', () => {
+  const base = cardMetrics('poster');
+  assert.deepEqual(cardMetrics('poster', 'comfortable'), base);
+  assert.ok(cardMetrics('poster', 'compact').wideColumn < base.wideColumn);
+  assert.ok(cardMetrics('poster', 'large').wideColumn > base.wideColumn);
+  assert.deepEqual(cardMetrics('poster', 'unknown'), base);
+  assert.equal(cardMetrics('thumbnail', 'large').aspect, cardMetrics('thumbnail').aspect);
+});

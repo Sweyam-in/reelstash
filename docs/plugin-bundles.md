@@ -28,6 +28,7 @@ Installed bundles live under `REELSTASH_PLUGIN_DIR` (default `/app-data/plugins`
 
 Installing a bundle whose id is already installed **upgrades** it in place (settings, data folder and the on/off switch are kept), and ReelStash says so: "My plugin updated: 1.0.0 → 1.1.0". You can do that by hand with **Add plugin**, or let ReelStash find and install new versions:
 
+- Or browse a **catalog**: under **Admin → Plugins → Catalog**, add the address of an `index.json` (such as the one the `reelstash_plugins` build writes at `dist/index.json`). ReelStash lists every plugin it offers with the version installed here, installs the latest version after checking its sha256, and keeps the catalog as that plugin's update source.
 - Give the plugin an **update source**: the address of its `index.json` (the `reelstash_plugins` build writes one at `dist/index.json`: every released version with its file and sha256). Set it per plugin under **Settings → Update source**, or have the plugin name it with `"updateUrl"` in its `plugin.json`. An address saved in the app wins.
 - A plugin with a source is checked when the Plugins page opens: the list shows **Update 1.1.0 available** and an **Update** button. **Settings → Check for updates** checks on demand.
 - **Update** downloads the newer version's file (relative to the index), checks its sha256 against the index, and installs it. A download that does not match is refused and nothing changes.

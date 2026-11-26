@@ -559,3 +559,7 @@ export const reorderDownloadRules = ids => put('/api/downloads/rules/order', { i
 export const testDownloadRules = () => get('/api/downloads/rules/test');
 export const getDownloadHistory = (limit = 100) => get(`/api/downloads/history?limit=${limit}`);
 export const forgetDownload = hash => del(`/api/downloads/history/${encodeURIComponent(hash)}`);
+// Plugin catalogs: index.json files that list plugins to browse and install from.
+export const getPluginCatalog = () => get('/api/admin/plugins/catalog');
+export const setPluginCatalogs = sources => put('/api/admin/plugins/catalog/sources', { sources });
+export const installFromPluginCatalog = (source, id) => post('/api/admin/plugins/catalog/install', { source, id });
