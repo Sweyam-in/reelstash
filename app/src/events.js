@@ -27,7 +27,7 @@ function forward(name) {
 
 function open() {
   if (source || typeof EventSource === 'undefined') return;
-  source = new EventSource('/api/events', { withCredentials: true });
+  source = new EventSource('/api/events?surface=media', { withCredentials: true });
   source.addEventListener('ready', () => setConnected(true));
   source.onerror = () => setConnected(false);
   for (const name of listeners.keys()) source.addEventListener(name, forward(name));

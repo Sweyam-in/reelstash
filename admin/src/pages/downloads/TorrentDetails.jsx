@@ -131,6 +131,12 @@ export default function TorrentDetails({ torrent, onClose, onChanged, onMove, on
       onChanged();
     } catch (err) { toast({ title: 'Could not run the rules', description: err.message, tone: 'danger' }); }
   }
+  async function copyHash() {
+    try {
+      await navigator.clipboard.writeText(torrent.hash);
+      toast({ title: 'Info hash copied', tone: 'success' });
+    } catch (err) { toast({ title: 'Could not copy the info hash', description: err.message, tone: 'danger' }); }
+  }
   async function saveName(event) {
     event.preventDefault();
     try { await renameTorrent(hash, name); setRenaming(false); onChanged(); }
@@ -174,6 +180,7 @@ export default function TorrentDetails({ torrent, onClose, onChanged, onMove, on
             <Field label="Completed">{when(torrent.completion_on)}</Field>
             <Field label="Category">{torrent.category || 'None'}</Field>
             <Field label="Tags">{torrentTags(torrent).join(', ') || 'None'}</Field>
+            <Field label="Info hash"><span className="rs-dl-hash">{torrent.hash} <button type="button" className="rs-dl-link" onClick={copyHash}>Copy</button></span></Field>
             {details?.properties?.comment && <Field label="Comment">{details.properties.comment}</Field>}
           </dl>
           <div className="rs-dl-sheet-section">

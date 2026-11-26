@@ -115,9 +115,9 @@ export function DeviceList({ refreshKey }) {
 // /link: where the app sends people to enter its code.
 export function LinkDevicePage() {
   return <div className="rs-page rs-link-page">
-    <Link to="/settings" className="rs-link-back"><ArrowLeft size={16} /> Back to settings</Link>
+    <Link to="/settings" className="rs-scope rs-link-back"><ArrowLeft size={16} /> Settings</Link>
     <div className="rs-link-layout">
-      <header className="rs-link-intro"><p className="rs-link-kicker"><span /> REELSTASH CONNECT</p><h1>Bring your library to another screen.</h1><p>Link your phone or TV to your ReelStash account in two quick steps.</p>
+      <header className="rs-link-intro"><p className="rs-eyebrow">Connect</p><h1 className="rs-page-title">Link a device<span className="rs-count">2 steps</span></h1><p className="rs-page-sub">Bring your library to your phone or TV. Your account stays in control.</p>
         <ol className="rs-link-steps"><li><span>01</span><div><strong>Find your code</strong><p>Open the ReelStash app on the device and choose to connect with a code.</p></div></li><li><span>02</span><div><strong>Confirm it here</strong><p>Enter the code and check the device name before approving access.</p></div></li></ol>
         <div className="rs-link-security"><ShieldCheck size={20} /><p><strong>Your account stays in control.</strong><br />You can sign out linked devices any time in Settings.</p></div>
       </header>

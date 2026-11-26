@@ -11,6 +11,7 @@ test('formatBytes scales through the units with sensible precision', () => {
   assert.equal(formatBytes(1024 ** 2), '1.0 MB');
   assert.equal(formatBytes(5.5 * 1024 ** 3), '5.5 GB');
   assert.equal(formatBytes(2 * 1024 ** 4), '2.0 TB');
+  assert.equal(formatBytes('2048'), '2.0 KB');
 });
 
 test('formatBytes caps at TB rather than inventing units', () => {

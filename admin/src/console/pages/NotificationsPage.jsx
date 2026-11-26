@@ -109,7 +109,7 @@ export function NotificationsPage() {
   }
 
   return <PageStack>
-    <PageHeader title="Notifications" subtitle="Admins see scan, matching and failed-job notices in the app. Add a webhook to send the same events to another service."
+    <PageHeader title="Notifications" subtitle="Scan, matching and failed-job notices show up here, not in the library. Add a webhook to send the same events to another service."
       actions={<Button onClick={() => setEditing({})} leadingIcon={<Plus size={14} />}>Add webhook</Button>} />
     <Panel title="Webhooks" bodyless>
       {data.error && !data.data ? <ErrorState title="Couldn't load webhooks" error={data.error} onRetry={data.reload} />

@@ -5,9 +5,14 @@ import { useServerEvent } from '../events';
 
 const NotificationsContext = createContext({ items: [], unread: 0, markRead: () => {} });
 
+// Alerts that belong in the admin console (scans, jobs, downloads), even if a
+// response still includes them.
+const adminNotice = note => typeof note?.link === 'string' && /^\/(admin|files|downloads)(\/|$)/.test(note.link);
+
 /**
- * Server notifications (scan finished, metadata matched, job failed, ...): loaded once,
- * topped up live over the event stream, and announced with a toast when one arrives.
+ * Library notifications for the media app. Admin alerts (scans, jobs, downloads)
+ * are not loaded or pushed here; they stay in the admin console. What does arrive
+ * is loaded once, topped up live, and announced with a toast.
  */
 export function NotificationsProvider({ enabled, children }) {
   const { toast } = useToast();
@@ -17,11 +22,12 @@ export function NotificationsProvider({ enabled, children }) {
   useEffect(() => {
     if (!enabled) { setItems([]); setUnread(0); return undefined; }
     let live = true;
-    getNotifications(15).then(result => { if (live) { setItems(result.items || []); setUnread(result.unread || 0); } }).catch(() => {});
+    getNotifications(15).then(result => { if (live) { setItems((result.items || []).filter(note => !adminNotice(note))); setUnread(result.unread || 0); } }).catch(() => {});
     return () => { live = false; };
   }, [enabled]);
 
   useServerEvent(enabled ? 'notification' : null, note => {
+    if (adminNotice(note)) return;
     setItems(current => (current.some(item => item.id === note.id) ? current : [note, ...current].slice(0, 15)));
     setUnread(count => count + 1);
     toast({ title: note.title, description: note.body || undefined, tone: note.kind.endsWith('.failed') ? 'danger' : 'success' });

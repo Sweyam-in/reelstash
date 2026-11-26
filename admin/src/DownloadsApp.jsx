@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, CircleAlert, CircleStop, Download, Gauge, History, Inbox, ListFilter,
+  AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, CircleAlert, CircleStop, Download, Gauge, History, Hourglass, Inbox, ListFilter,
   Plus, Settings, Sprout, Tag, Turtle, Workflow, Zap,
 } from 'lucide-react';
 import { AppShell, Button, NavItem, NavSection, Sidebar, SpatikaThemeProvider, Toaster, TopBar, useToast } from '@spatika/react';
@@ -10,7 +10,7 @@ import { AppLockProvider } from './components/AppLock';
 import { NotificationsProvider } from './components/Notifications';
 import { AuthGate, HeaderActions, ScrollReset, useRecentMedia } from './shell';
 import { AppWorkspaceSwitcher, OPEN_LIBRARY, useOpenLink, useStoredTheme } from './workspaces';
-import { FILTERS, filterCounts, formatSpeed, torrentTags } from './downloadsModel';
+import { FILTERS, filterCounts, formatRate, formatSpeed, torrentTags } from './downloadsModel';
 import { DownloadsContext } from './pages/downloads/context';
 import TorrentsPage from './pages/downloads/TorrentsPage';
 import AddTorrentDialog from './pages/downloads/AddTorrentDialog';
@@ -23,7 +23,7 @@ import downloadsLogo from './assets/logo-downloads.svg';
 // ReelStash Downloads: qBittorrent, managed from ReelStash (downloads.html), deployed beside
 // Admin and Files — see workspaces.jsx. Admins only; the server talks to qBittorrent.
 
-const FILTER_ICON = { all: Inbox, downloading: Download, seeding: Sprout, completed: CheckCircle2, stopped: CircleStop, active: Zap, errored: CircleAlert };
+const FILTER_ICON = { all: Inbox, downloading: Download, seeding: Sprout, completed: CheckCircle2, stopped: CircleStop, active: Zap, stalled: Hourglass, errored: CircleAlert };
 
 // The live torrent list: refreshed every 2 seconds while the tab is visible, every 15 in the
 // background (the server itself only polls qBittorrent quickly while someone is looking).
@@ -51,8 +51,8 @@ function SpeedMeter({ server, onToggleAlt, busy }) {
   const alt = !!server?.use_alt_speed_limits;
   const limit = value => (value > 0 ? ` (limit ${formatSpeed(value)})` : '');
   return <div className="rs-dl-speed" aria-label="Transfer speed">
-    <span title={`Download${limit(server?.dl_rate_limit)}`}><ArrowDown size={14} />{formatSpeed(server?.dl_info_speed) === '—' ? '0 B/s' : formatSpeed(server?.dl_info_speed)}</span>
-    <span title={`Upload${limit(server?.up_rate_limit)}`}><ArrowUp size={14} />{formatSpeed(server?.up_info_speed) === '—' ? '0 B/s' : formatSpeed(server?.up_info_speed)}</span>
+    <span title={`Download${limit(server?.dl_rate_limit)}`}><ArrowDown size={14} />{formatRate(server?.dl_info_speed)}</span>
+    <span title={`Upload${limit(server?.up_rate_limit)}`}><ArrowUp size={14} />{formatRate(server?.up_info_speed)}</span>
     <button type="button" className={`rs-dl-alt${alt ? ' is-on' : ''}`} aria-pressed={alt} disabled={busy} onClick={onToggleAlt}
       title={alt ? 'Alternative speed limits are on' : 'Use alternative speed limits'} aria-label="Alternative speed limits"><Turtle size={16} /></button>
   </div>;

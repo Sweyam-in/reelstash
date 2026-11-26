@@ -122,7 +122,7 @@ test('list endpoints build their query strings', async () => {
   await api.search('rock & roll');
   assert.equal(last().url, '/api/search?q=rock%20%26%20roll');
   await api.getNotifications();
-  assert.equal(last().url, '/api/notifications?limit=20');
+  assert.equal(last().url, '/api/notifications?limit=20&surface=media');
   await api.getUsageAnalytics(7, 'Europe/Paris');
   assert.equal(last().url, '/api/admin/analytics/usage?days=7&tz=Europe%2FParis');
 });

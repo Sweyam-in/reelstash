@@ -31,7 +31,8 @@
 .rs-dl-warning > span { flex: 1; min-width: 0; color: var(--spk-text-primary); line-height: 1.4; }
 
 .rs-dl-table { flex: 1; padding: 0 .75rem 1rem; }
-.rs-dl-head, .rs-dl-row { display: grid; grid-template-columns: 1.9rem minmax(0, 1fr) 8.5rem 5.5rem 5.5rem 4.2rem 3.6rem; align-items: center; column-gap: .5rem; }
+/* check, name, status, down, up, size, eta, added, peers, ratio */
+.rs-dl-head, .rs-dl-row { display: grid; grid-template-columns: 1.9rem minmax(0, 1fr) 8.4rem 5.4rem 5.4rem 5rem 4.2rem 5rem 4.4rem 3.6rem; align-items: center; column-gap: .45rem; }
 .rs-dl-head { position: sticky; top: var(--fm-toolbar-h); z-index: 20; height: 2rem; margin: 0 -.75rem; padding: 0 .75rem; background: var(--spk-canvas); border-bottom: 1px solid var(--spk-border); color: var(--spk-text-tertiary); font-size: .7rem; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; }
 .rs-dl-row { min-height: 3.6rem; border-radius: .55rem; }
 .rs-dl-row + .rs-dl-row { border-top: 1px solid color-mix(in srgb, var(--spk-border) 60%, transparent); }
@@ -58,19 +59,36 @@
 .rs-dl-status { display: grid; justify-items: start; gap: .15rem; }
 .rs-dl-status small { color: var(--spk-text-tertiary); font-size: .7rem; font-variant-numeric: tabular-nums; }
 .rs-dl-num { color: var(--spk-text-secondary); font-size: .76rem; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.rs-dl-head .rs-dl-num { color: inherit; }
-.rs-dl-sort { display: inline-flex; align-items: center; gap: .2rem; height: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.rs-dl-num.is-down { color: var(--dl-accent); font-weight: 650; }
+.rs-dl-num.is-up { color: #6a4ae6; font-weight: 650; }
+.rs-dl-head .rs-dl-num { color: inherit; font-weight: inherit; }
+.rs-dl-sort { display: inline-flex; align-items: center; gap: .2rem; width: 100%; height: 100%; min-height: 2rem; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
 .rs-dl-sort.rs-dl-num { justify-content: flex-end; }
 .rs-dl-sort:hover, .rs-dl-sort.is-active { color: var(--spk-text-primary); }
 .rs-dl-statusbar { margin-top: auto; }
+.rs-dl-status-speeds { display: inline-flex; align-items: center; gap: .85rem; font-variant-numeric: tabular-nums; }
+.rs-dl-status-speeds > span { display: inline-flex; align-items: center; gap: .15rem; }
+.rs-dl-status-speeds .is-down svg { color: var(--dl-accent); }
+.rs-dl-status-speeds .is-up svg { color: #7c5cff; }
 .rs-dl-version { margin-left: auto; color: var(--spk-text-tertiary); }
+.rs-dl-menu-form { display: flex; gap: .35rem; padding: .35rem .4rem .5rem; }
+.rs-dl-menu-form input { width: 9.5rem; height: 1.85rem; padding: 0 .5rem; border: 1px solid var(--spk-border-strong); border-radius: .4rem; background: var(--spk-surface); color: var(--spk-text-primary); font: inherit; font-size: .78rem; }
+.rs-dl-hash { font-family: ui-monospace, SFMono-Regular, monospace; font-size: .72rem; word-break: break-all; }
 
-@media (max-width: 900px) {
-  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 7rem 4.6rem; }
-  .rs-dl-head > :nth-child(n+5), .rs-dl-row > :nth-child(n+5) { display: none; }
+@media (max-width: 1180px) {
+  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 8.2rem 5.2rem 5.2rem 4.8rem 4rem 4.6rem; }
+  .rs-dl-head > :nth-child(n+9), .rs-dl-row > :nth-child(n+9) { display: none; }
+}
+@media (max-width: 980px) {
+  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 7.6rem 5rem 5rem 4.6rem; }
+  .rs-dl-head > :nth-child(n+7), .rs-dl-row > :nth-child(n+7) { display: none; }
+}
+@media (max-width: 760px) {
+  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 6.8rem 4.6rem 4.6rem; }
+  .rs-dl-head > :nth-child(n+6), .rs-dl-row > :nth-child(n+6) { display: none; }
 }
 @media (max-width: 600px) {
-  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 5.6rem; }
+  .rs-dl-head, .rs-dl-row { grid-template-columns: 1.9rem minmax(0, 1fr) 6.2rem; }
   .rs-dl-head > :nth-child(n+4), .rs-dl-row > :nth-child(n+4) { display: none; }
   .rs-dl-speed > span { display: none; }
   .rs-dl-search { width: 10rem; }

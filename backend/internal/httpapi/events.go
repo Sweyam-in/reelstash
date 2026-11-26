@@ -72,8 +72,10 @@ func jobsActive(snapshot map[string]any) bool {
 	return thumbs+previews > 0
 }
 
-// handleEvents is the server-sent-events stream. Admins receive live job
-// snapshots; everyone receives notifications.
+// handleEvents is the server-sent-events stream. The admin console receives
+// live job snapshots and admin notifications. The media app (surface=media)
+// does not: those alerts stay in the admin console. Everyone receives
+// notifications that are not admin-only.
 func (a *API) handleEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -81,7 +83,7 @@ func (a *API) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, _ := UserFromContext(r.Context())
-	isAdmin := user.Role == "ADMIN"
+	isAdmin := includeAdminNotices(user.Role, r.URL.Query().Get("surface"))
 
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")

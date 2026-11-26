@@ -132,8 +132,9 @@ export const requestPreview = id => post(`/api/media/${id}/preview`);
 export const addWatchLater = id => put(`/api/watch-later/${id}`);
 export const removeWatchLater = id => del(`/api/watch-later/${id}`);
 
-export const getNotifications = (limit = 20) => get(`/api/notifications?limit=${limit}`);
-export const markNotificationsRead = () => post('/api/notifications/read');
+// surface=media keeps scan, job, and download alerts in the admin console.
+export const getNotifications = (limit = 20) => get(`/api/notifications?limit=${limit}&surface=media`);
+export const markNotificationsRead = () => post('/api/notifications/read?surface=media');
 
 export const getWebhooks = () => get('/api/admin/webhooks');
 export const createWebhook = payload => post('/api/admin/webhooks', payload);

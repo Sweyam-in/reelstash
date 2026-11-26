@@ -817,6 +817,27 @@ export function Catalog({ type = 'library' }) {
   const blurb = type === 'favorites' ? 'Titles you saved to come back to.' : type === 'watchlater' ? 'Titles you set aside to watch when you have time. Finished ones drop off on their own.' : type === 'search' ? 'Search titles, people and studios.' : type === 'movies' ? 'Every movie in this library.' : 'Every title in your library. Your filters stay put when you come back.';
   const countText = loading && !items.length ? '…' : `${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`;
 
+  const inScopes = type === 'library' || type === 'movies';
+  const filterControls = <>
+      <FilterPanel
+        activeCount={chips.length}
+        onClear={clearAll}
+        sections={[
+          { id: 'studio', label: terms.studio, kind: 'multi', values: studios, onChange: setStudios, hidden: !browsing, options: studioNames.map(name => ({ value: name, label: name })) },
+          { id: 'person', label: terms.person, kind: 'single', value: person, hidden: !browsing, onSearch: searchPeople,
+            onChange: value => { setPerson(value); setPersonName(people.find(p => String(p.id) === value)?.name || ''); },
+            options: [{ value: '', label: 'Anyone' }, ...(person && !people.some(p => String(p.id) === String(person)) ? [{ value: person, label: personName || 'Chosen' }] : []), ...people.map(p => ({ value: String(p.id), label: p.name, count: p.mediaCount }))] },
+          { id: 'category', label: terms.category, kind: 'single', value: category, onChange: setCategory, hidden: !browsing, options: [{ value: '', label: 'Any' }, ...categories.map(c => ({ value: String(c.id), label: c.name, count: c.mediaCount }))] },
+          { id: 'rating', label: 'Rating', kind: 'chips', value: String(rating), onChange: setRating, options: [{ value: '0', label: 'Any' }, ...[5, 4, 3, 2, 1].map(n => ({ value: String(n), label: `${n}+ ★` }))] },
+          { id: 'length', label: 'Length', kind: 'chips', value: duration, onChange: setDuration, options: DURATION_FILTERS },
+          { id: 'quality', label: 'Quality', kind: 'chips', value: quality, onChange: setQuality, options: QUALITY_FILTERS },
+          { id: 'watched', label: 'Watched', kind: 'chips', value: watched, onChange: setWatched, hidden: scope !== 'all', options: WATCHED_FILTERS },
+          { id: 'added', label: 'Added', kind: 'chips', value: added, onChange: setAdded, options: ADDED_FILTERS },
+        ]}
+      />
+      <FilterSelect label="Sort" value={sort} options={SORT_OPTIONS} onChange={setSort} />
+  </>;
+
   return <div className={`rs-page rs-catalog rs-catalog-${type}`}>
     <header className="rs-page-head">
       <div>
@@ -832,8 +853,9 @@ export function Catalog({ type = 'library' }) {
       <span className="rs-scopes-sep" aria-hidden="true" />
       <Link className="rs-scope" to="/favorites">Favorites</Link>
       <Link className="rs-scope" to="/watch-later">Watch later</Link>
+      {showVideos && <><span className="rs-filterbar-gap" />{filterControls}</>}
     </div>}
-    {showVideos && <div className="rs-filterbar">
+    {showVideos && !inScopes && <div className="rs-filterbar">
       <FilterPanel
         activeCount={chips.length}
         onClear={clearAll}
@@ -1282,7 +1304,7 @@ export function BrowseDetail({ type }) {
       toast({ title: 'Could not update notifications', description: err.message, tone: 'danger' });
     }
   }
-  return <div className={`rs-page rs-entity-page ${toneClass(`${type}:${id}`)}`}>
+  return <div className={`rs-page rs-entity-page${type === 'studios' ? ' rs-studio-page' : ''} ${toneClass(`${type}:${id}`)}`}>
     {type === 'performers' ? <header className={`rs-performer-hero ${entity ? performerTheme(entity)['--pf-pattern'] : ''}`} style={entity ? performerTheme(entity) : undefined}>
       {entity?.profileImageId && <span className="rs-performer-hero-bg" style={{ backgroundImage: `url(${performerImageUrl(entity.id, entity.profileImageId)})` }} aria-hidden="true" />}
       <span className="rs-entity-portrait">{entity ? <DirectoryMark item={entity} index={0} type="performers" portrait /> : null}</span>
@@ -1312,7 +1334,7 @@ export function BrowseDetail({ type }) {
         <div><dt>Your avg rating</dt><dd>{insights.avgRating ? `★ ${insights.avgRating.toFixed(1)}` : '—'}</dd></div>
       </dl>}
     </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} onSettings={isAdmin ? () => setSettingsOpen(true) : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
-      {type === 'studios' && entity && entity.logoImageId && <span className="rs-studio-hero-logo"><DirectoryMark item={entity} index={0} type="studios" /></span>}
+      {type === 'studios' && entity && <span className={`rs-studio-hero-logo${entity.logoImageId ? '' : ' is-mono'}`}><DirectoryMark item={entity} index={0} type="studios" /></span>}
       {portrait && entity && <span className="rs-entity-portrait"><DirectoryMark item={entity} index={0} type="performers" portrait /></span>}
       <div><p className="rs-eyebrow">{config.singular.toUpperCase()} / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{collectionLabel}</p>
         {type === 'performers' && entity && (entity.notes || entity.metadata?.bio) && <p className="rs-performer-bio rs-entity-description">{entity.notes || entity.metadata.bio}</p>}

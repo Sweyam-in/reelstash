@@ -21,7 +21,7 @@ beforeEach(() => { sources.length = 0; });
 test('the first subscriber opens one credentialed connection', () => {
   const off = subscribe('jobs', () => {});
   assert.equal(sources.length, 1);
-  assert.equal(sources[0].url, '/api/events');
+  assert.equal(sources[0].url, '/api/events?surface=media');
   assert.deepEqual(sources[0].opts, { withCredentials: true });
   off();
 });

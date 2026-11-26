@@ -11,18 +11,24 @@ import (
 	"reelstash/backend/internal/notify"
 )
 
+// includeAdminNotices is true for the admin console. The media app sends
+// surface=media so scan, job, and download alerts stay out of the library.
+func includeAdminNotices(role, surface string) bool {
+	return role == "ADMIN" && surface != "media"
+}
+
 // listNotifications returns the newest notifications this user may see and
 // how many are unread.
 func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
-	isAdmin := user.Role == "ADMIN"
+	includeAdmin := includeAdminNotices(user.Role, r.URL.Query().Get("surface"))
 	limit, _ := parseLimitOffset(r)
 
 	rows, err := a.DB.Query(r.Context(), `
 		SELECT id, kind, title, COALESCE(body, ''), COALESCE(link, ''), created_at
 		FROM notification WHERE ($1 OR NOT admin_only)
 		ORDER BY id DESC LIMIT $2
-	`, isAdmin, limit)
+	`, includeAdmin, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load notifications")
 		return
@@ -42,18 +48,21 @@ func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
 	var lastRead int64
 	_ = a.DB.QueryRow(r.Context(), `SELECT last_read_id FROM notification_state WHERE user_id = $1`, user.ID).Scan(&lastRead)
 	var unread int
-	_ = a.DB.QueryRow(r.Context(), `SELECT COUNT(*) FROM notification WHERE id > $1 AND ($2 OR NOT admin_only)`, lastRead, isAdmin).Scan(&unread)
+	_ = a.DB.QueryRow(r.Context(), `SELECT COUNT(*) FROM notification WHERE id > $1 AND ($2 OR NOT admin_only)`, lastRead, includeAdmin).Scan(&unread)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "unread": unread})
 }
 
-// markNotificationsRead marks everything up to now as read for this user.
+// markNotificationsRead marks everything this surface shows as read. The media
+// app does not advance past admin-only rows, so opening the library bell leaves
+// the admin console's unread count alone.
 func (a *API) markNotificationsRead(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
+	includeAdmin := includeAdminNotices(user.Role, r.URL.Query().Get("surface"))
 	_, err := a.DB.Exec(r.Context(), `
 		INSERT INTO notification_state (user_id, last_read_id)
-		VALUES ($1, COALESCE((SELECT MAX(id) FROM notification), 0))
+		VALUES ($1, COALESCE((SELECT MAX(id) FROM notification WHERE ($2 OR NOT admin_only)), 0))
 		ON CONFLICT (user_id) DO UPDATE SET last_read_id = GREATEST(notification_state.last_read_id, EXCLUDED.last_read_id)
-	`, user.ID)
+	`, user.ID, includeAdmin)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to mark notifications read")
 		return

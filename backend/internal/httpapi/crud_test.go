@@ -604,6 +604,29 @@ func TestNotificationsAdminOnlyVisibilityAndReadState(t *testing.T) {
 	if a := titles(&h.admin); !a[pub] || !a[priv] {
 		t.Errorf("admin should see both, got %v", a)
 	}
+	// The media app asks with surface=media. Admin alerts stay in the admin console.
+	mediaTitles := map[string]bool{}
+	mediaBody := h.jsonBody(h.do(&h.admin, "GET", "/api/notifications?limit=200&surface=media", nil), 200)
+	for _, it := range mediaBody["items"].([]any) {
+		mediaTitles[it.(map[string]any)["title"].(string)] = true
+	}
+	if !mediaTitles[pub] || mediaTitles[priv] {
+		t.Errorf("media app sees %v; want the public one only", mediaTitles)
+	}
+	if mediaBody["unread"].(float64) < 1 {
+		t.Error("media app should still count the public notification")
+	}
+	adminUnread := func() float64 {
+		return h.jsonBody(h.do(&h.admin, "GET", "/api/notifications", nil), 200)["unread"].(float64)
+	}
+	before := adminUnread()
+	if before < 2 {
+		t.Fatalf("admin unread = %v, want the public notice and the admin alert", before)
+	}
+	h.expect(h.do(&h.admin, "POST", "/api/notifications/read?surface=media", nil), 200)
+	if got := adminUnread(); got != before-1 {
+		t.Errorf("opening the media bell unread = %v, want %v (library notice cleared, admin alert kept)", got, before-1)
+	}
 
 	unread := func(who *actor) float64 {
 		return h.jsonBody(h.do(who, "GET", "/api/notifications", nil), 200)["unread"].(float64)

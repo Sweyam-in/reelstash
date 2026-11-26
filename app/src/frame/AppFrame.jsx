@@ -68,9 +68,7 @@ function NotificationsButton({ recentItems, unseen, onMarkSeen, openLink }) {
   const location = useLocation();
   useEffect(() => { setOpen(false); }, [location.pathname]);
   const onOpenChange = next => { setOpen(next); if (next) { onMarkSeen?.(); notes.markRead(); } };
-  const jobs = notes.items;
-  const showJobs = tab !== 'new';
-  const showNew = tab !== 'jobs';
+  const showNotes = tab === 'all';
   const count = notes.unread > 9 ? '9+' : notes.unread;
   return <Popover open={open} onOpenChange={onOpenChange}>
     <PopoverTrigger className="rs-icon-btn rs-bell" aria-label={notes.unread ? `Notifications, ${notes.unread} new` : 'Notifications'}>
@@ -80,19 +78,19 @@ function NotificationsButton({ recentItems, unseen, onMarkSeen, openLink }) {
     <PopoverContent align="end" className="rs-notifications" aria-label="Notifications">
       <div className="rs-notifications-head"><strong>Notifications</strong></div>
       <div className="rs-notifications-tabs" role="tablist" aria-label="Notification type">
-        {[['all', 'All'], ['new', 'New titles'], ['jobs', 'Library jobs']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={cx('rs-chip-tab', tab === id && 'is-active')} onClick={() => setTab(id)}>{label}</button>)}
+        {[['all', 'All'], ['new', 'New titles']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={cx('rs-chip-tab', tab === id && 'is-active')} onClick={() => setTab(id)}>{label}</button>)}
       </div>
       <div className="rs-notifications-list">
-        {showJobs && jobs.slice(0, 6).map(note => <button type="button" key={note.id} className="rs-note" onClick={() => { setOpen(false); if (note.link) openLink(note.link); }}>
+        {showNotes && notes.items.slice(0, 6).map(note => <button type="button" key={note.id} className="rs-note" onClick={() => { setOpen(false); if (note.link) openLink(note.link); }}>
           <span className={cx('rs-note-icon', note.kind?.endsWith('.failed') && 'is-danger')}><Bell size={15} aria-hidden="true" /></span>
           <span className="rs-note-text"><strong>{note.title}</strong>{note.body && <small>{note.body}</small>}</span>
           <time className="rs-note-time">{timeAgo(note.createdAt)}</time>
         </button>)}
-        {showNew && recentItems.map(item => <button type="button" key={`m${item.id}`} className="rs-note" onClick={() => { setOpen(false); openLink(`/library/${item.id}`); }}>
+        {recentItems.map(item => <button type="button" key={`m${item.id}`} className="rs-note" onClick={() => { setOpen(false); openLink(`/library/${item.id}`); }}>
           <span className="rs-note-icon is-new"><Film size={15} aria-hidden="true" /></span>
           <span className="rs-note-text"><strong>{item.title}</strong><small>{item.followed ? `New · with ${(item.performers || [])[0] || 'someone you follow'}` : item.studioName ? `New · ${item.studioName}` : 'New in your library'}</small></span>
         </button>)}
-        {((showJobs && !jobs.length) || !showJobs) && (!showNew || !recentItems.length) && <p className="rs-notifications-empty">Nothing new right now.</p>}
+        {(!showNotes || !notes.items.length) && !recentItems.length && <p className="rs-notifications-empty">Nothing new right now.</p>}
       </div>
     </PopoverContent>
   </Popover>;

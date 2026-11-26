@@ -566,3 +566,21 @@
 .rs-pm-frame-row .rs-pm-frame-slider { flex: 1; max-width: none; min-width: 80px; }
 .rs-pm-frame-time { min-width: 5.5em; font-size: 13px; color: var(--ui-text-secondary); white-space: nowrap; }
 @media (max-width: 720px) { .rs-art-now { grid-template-columns: minmax(0, 1fr); } .rs-art-preview.is-wide { width: 100%; } .rs-frame-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ---- Link page, aligned with the Library design ---- */
+.rs-link-page .rs-link-back { margin-bottom: 28px; gap: 8px; }
+.rs-link-layout { grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem); gap: clamp(24px, 5vw, 64px); }
+.rs-link-intro { padding-top: 0; }
+.rs-link-intro .rs-page-sub { max-width: 32rem; margin: 10px 0 0; color: var(--ui-text-secondary); font-size: 15px; line-height: 1.6; }
+.rs-link-steps { gap: 12px; max-width: 32rem; margin-top: 28px; }
+.rs-link-steps li { padding: 14px 16px; border: 1px solid var(--ui-border-subtle); border-radius: 16px; background: var(--ui-surface); }
+.rs-link-steps li > span { width: auto; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--ui-accent-border); background: var(--ui-accent-subtle); color: var(--ui-accent-text); font-size: 12px; justify-self: start; }
+.rs-link-steps li { grid-template-columns: 3rem 1fr; }
+.rs-link-security { max-width: 32rem; margin-top: 12px; border-radius: 16px; border-color: var(--ui-border-subtle); }
+.rs-link-card { border-radius: 16px; border-color: var(--ui-border-subtle); box-shadow: none; }
+.rs-link-stage-icon, .rs-link-result-icon { background: var(--ui-accent-subtle); border: 1px solid var(--ui-accent-border); }
+.rs-link-step { letter-spacing: .12em; }
+.rs-link-stage h2, .rs-link-result h2 { font-family: var(--ui-font-display); letter-spacing: -.02em; }
+.rs-link-form .rs-link-device-code { border-radius: 12px; }
+.rs-link-device-preview { border-radius: 14px; border-color: var(--ui-border-subtle); }
+@media (max-width: 900px) { .rs-link-layout { grid-template-columns: 1fr; } }

@@ -68,6 +68,22 @@ describe('NotificationsProvider', () => {
     expect(await screen.findAllByText('Matching finished')).not.toHaveLength(0);
   });
 
+  it('drops admin alerts instead of listing or toasting them', async () => {
+    getNotifications.mockResolvedValue({
+      items: [
+        { id: 1, kind: 'scan.completed', title: 'Scan finished', link: '/admin/jobs' },
+        { id: 2, kind: 'library.note', title: 'New in your library' },
+      ],
+      unread: 1,
+    });
+    renderProvider(true);
+    expect(await screen.findByText('New in your library')).toBeInTheDocument();
+    expect(screen.queryByText('Scan finished')).not.toBeInTheDocument();
+    act(() => live.handler({ id: 3, kind: 'job.failed', title: 'Scan failed', link: '/admin/jobs' }));
+    expect(screen.queryByText('Scan failed')).not.toBeInTheDocument();
+    expect(screen.getByTestId('unread')).toHaveTextContent('1');
+  });
+
   it('does not list the same notification twice', async () => {
     renderProvider(true);
     await screen.findByText('Scan finished');

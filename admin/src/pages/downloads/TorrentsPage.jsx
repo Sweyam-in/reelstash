@@ -1,19 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, useToast,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, useToast,
 } from '@spatika/react';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, ChevronDown, Download, FolderInput, Library, Pause, Play, Plus, RefreshCw, Search,
-  Settings, ShieldCheck, Tag, Trash2,
+  AlertTriangle, ArrowDown, ArrowUp, ChevronDown, Download, FolderInput, Library, MoreHorizontal, Pause, Play, Plus, RefreshCw, Search,
+  Settings, ShieldCheck, Tag, Tags, Trash2,
 } from 'lucide-react';
-import { deleteTorrents, fixDownloadFolders, moveTorrents, setTorrentCategory, torrentAction } from '../../api';
+import { deleteTorrents, fixDownloadFolders, moveTorrents, setTorrentCategory, setTorrentTags, torrentAction } from '../../api';
 import { useDownloads } from './context';
 import FolderPicker from '../../components/FolderPicker';
 import { formatBytes } from '../../format';
 import {
-  DEFAULT_SORT, etaLabel, nextSort, formatPercent, formatRatio, formatSpeed, isComplete, moveLabel, sortTorrents, torrentState,
+  DEFAULT_SORT, SORT_FIRST_DIR, etaLabel, formatAdded, formatRate, nextSort, formatPercent, formatRatio, formatSpeed, isComplete, moveLabel, sortTorrents, torrentState,
   torrentTags, totals, visibleTorrents,
 } from '../../downloadsModel';
 import TorrentDetails from './TorrentDetails';
@@ -109,28 +109,52 @@ function Progress({ value, tone }) {
   </span>;
 }
 
-/** A column header that sorts the list: first click, reversed, then back to newest first. */
+/** A column header that sorts the list. The first click uses that column's natural direction; the next click reverses it. */
 function SortHeader({ id, label, sort, onSort, num }) {
   const active = sort.key === id;
   const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
   return <button type="button" className={`rs-dl-sort${num ? ' rs-dl-num' : ''}${active ? ' is-active' : ''}`}
     aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-    title={active ? 'Click to reverse; again for newest first' : `Sort by ${label.toLowerCase()}`}
+    title={active ? (sort.dir === 'asc' ? 'Sorted ascending. Click to reverse.' : 'Sorted descending. Click to reverse.') : `Sort by ${label.toLowerCase()}`}
     onClick={() => onSort(nextSort(sort, id))}>
     {label}{active && <Arrow size={12} />}
   </button>;
+}
+
+function storedSort() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('reelstash-downloads-sort') || 'null');
+    if (saved && Object.prototype.hasOwnProperty.call(SORT_FIRST_DIR, saved.key) && (saved.dir === 'asc' || saved.dir === 'desc')) {
+      return { key: saved.key, dir: saved.dir };
+    }
+  } catch { /* storage off or an old value */ }
+  return DEFAULT_SORT;
 }
 
 function TorrentRow({ t, selected, onToggle, onOpen }) {
   const st = torrentState(t.state);
   const move = moveLabel(t.move);
   const tags = torrentTags(t);
+  const size = Number(t.size) || 0;
+  const left = Number(t.amount_left) || 0;
+  const seeds = Number(t.num_seeds) || 0;
+  const peers = Number(t.num_leechs) || 0;
+  const down = formatSpeed(t.dlspeed);
+  const up = formatSpeed(t.upspeed);
   return <div className={`rs-dl-row${selected ? ' is-selected' : ''}`} role="row" aria-selected={selected}>
-    <span className="rs-fm-check rs-dl-check-col" role="gridcell"><input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${t.name}`} /></span>
+    <span className="rs-fm-check rs-dl-check-col" role="gridcell">
+      <input type="checkbox" checked={selected} aria-label={`Select ${t.name}`}
+        onPointerDown={e => { e.currentTarget.dataset.shift = e.shiftKey ? '1' : ''; }}
+        onChange={e => {
+          const shift = e.currentTarget.dataset.shift === '1';
+          e.currentTarget.dataset.shift = '';
+          onToggle(shift);
+        }} />
+    </span>
     <button type="button" className="rs-dl-main" onClick={onOpen} role="gridcell">
       <span className="rs-dl-name" title={t.name}>{t.name}</span>
       <span className="rs-dl-meta">
-        <span>{isComplete(t) ? formatBytes(t.size) : `${formatBytes((t.size || 0) - (t.amount_left || 0))} of ${formatBytes(t.size)}`}</span>
+        <span>{isComplete(t) ? formatBytes(size) : `${formatBytes(size - left)} of ${formatBytes(size)}`}</span>
         {t.category && <span className="rs-dl-chip"><Tag size={11} />{t.category}</span>}
         {tags.map(tag => <span key={tag} className="rs-dl-chip is-tag">{tag}</span>)}
         {t.library && <span className="rs-dl-chip is-library" title="In a ReelStash library"><Library size={11} />{t.library.name}</span>}
@@ -139,10 +163,13 @@ function TorrentRow({ t, selected, onToggle, onOpen }) {
       <Progress value={t.progress} tone={st.tone} />
     </button>
     <span className="rs-dl-status" role="gridcell"><Badge variant={st.tone}>{st.label}</Badge><small>{formatPercent(t.progress)}</small></span>
-    <span className="rs-dl-num" role="gridcell" title="Download speed">{formatSpeed(t.dlspeed)}</span>
-    <span className="rs-dl-num" role="gridcell" title="Upload speed">{formatSpeed(t.upspeed)}</span>
-    <span className="rs-dl-num" role="gridcell" title="Time left">{etaLabel(t)}</span>
-    <span className="rs-dl-num" role="gridcell" title="Ratio">{formatRatio(t.ratio)}</span>
+    <span className={`rs-dl-num${down === '—' ? '' : ' is-down'}`} role="gridcell" title={down === '—' ? 'Not downloading' : `Download ${down}`}>{down}</span>
+    <span className={`rs-dl-num${up === '—' ? '' : ' is-up'}`} role="gridcell" title={up === '—' ? 'Not uploading' : `Upload ${up}`}>{up}</span>
+    <span className="rs-dl-num" role="gridcell" title="Size">{formatBytes(size)}</span>
+    <span className="rs-dl-num" role="gridcell" title="Time left">{etaLabel(t) || '—'}</span>
+    <span className="rs-dl-num" role="gridcell" title={t.added_on ? new Date(t.added_on * 1000).toLocaleString() : 'Added'}>{formatAdded(t.added_on)}</span>
+    <span className="rs-dl-num" role="gridcell" title={`${seeds} seeds, ${peers} peers`}>{seeds}/{peers}</span>
+    <span className="rs-dl-num" role="gridcell" title="Share ratio">{formatRatio(t.ratio)}</span>
   </div>;
 }
 
@@ -150,18 +177,17 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
   const { snap, error, torrents, reload, openCategory } = useDownloads();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState(() => {
-    try { const saved = JSON.parse(localStorage.getItem('reelstash-downloads-sort') || 'null'); if (saved?.key) return saved; } catch { /* storage off or old value */ }
-    return DEFAULT_SORT;
-  });
+  const [sort, setSort] = useState(storedSort);
   const [selected, setSelected] = useState(() => new Set());
   const [openHash, setOpenHash] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [moving, setMoving] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [tagName, setTagName] = useState('');
+  const anchor = useRef(null);
 
   useEffect(() => { try { localStorage.setItem('reelstash-downloads-sort', JSON.stringify(sort)); } catch { /* storage off */ } }, [sort]);
-  useEffect(() => { setSelected(new Set()); }, [filter, category, tag]);
+  useEffect(() => { setSelected(new Set()); anchor.current = null; }, [filter, category, tag]);
 
   const shown = useMemo(() => sortTorrents(visibleTorrents(torrents, { filter, category, tag, query }), sort.key, sort.dir), [torrents, filter, category, tag, query, sort]);
   // Forget selections that left the list.
@@ -178,12 +204,31 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
 
   if (!snap?.connected) return <><Warnings warnings={snap?.warnings} onFixed={reload} /><NotConnected snap={snap} error={error} /></>;
 
-  const toggle = hash => setSelected(current => {
-    const next = new Set(current);
-    if (next.has(hash)) next.delete(hash); else next.add(hash);
-    return next;
-  });
+  const toggle = (hash, shiftKey) => {
+    setSelected(current => {
+      const next = new Set(current);
+      const ids = shown.map(t => t.hash);
+      const index = ids.indexOf(hash);
+      if (shiftKey && anchor.current) {
+        const from = ids.indexOf(anchor.current);
+        if (from >= 0 && index >= 0) {
+          const [start, end] = from < index ? [from, index] : [index, from];
+          const select = !current.has(hash);
+          for (let i = start; i <= end; i += 1) {
+            if (select) next.add(ids[i]);
+            else next.delete(ids[i]);
+          }
+          return next;
+        }
+      }
+      if (next.has(hash)) next.delete(hash);
+      else next.add(hash);
+      return next;
+    });
+    anchor.current = hash;
+  };
   const allPicked = shown.length > 0 && picked.length === shown.length;
+  const pickedTags = [...new Set(picked.flatMap(torrentTags))].sort((a, b) => a.localeCompare(b));
 
   async function act(action, label) {
     setBusy(true);
@@ -197,12 +242,25 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
     catch (err) { toast({ title: 'Could not change the category', description: err.message, tone: 'danger' }); }
     finally { setBusy(false); }
   }
+  async function applyTags(add, remove) {
+    const clean = names => names.flatMap(name => String(name).split(',')).map(name => name.trim()).filter(Boolean);
+    const adding = clean(add);
+    const removing = clean(remove);
+    if (!adding.length && !removing.length) return;
+    setBusy(true);
+    try {
+      await setTorrentTags(picked.map(t => t.hash), { add: adding, remove: removing });
+      setTagName('');
+      await reload();
+    } catch (err) { toast({ title: 'Could not change tags', description: err.message, tone: 'danger' }); }
+    finally { setBusy(false); }
+  }
 
   const none = !picked.length || busy;
   return <div className={`rs-dl${picked.length ? ' has-selection' : ''}`}>
     <Warnings warnings={snap.warnings} onFixed={reload} />
     <div className="rs-fm-toolbar rs-dl-toolbar" role="toolbar" aria-label="Torrent actions">
-      <label className="rs-fm-search rs-dl-search"><Search size={15} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Filter torrents" aria-label="Filter torrents" /></label>
+      <label className="rs-fm-search rs-dl-search"><Search size={15} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, tag, or hash" aria-label="Filter by name, tag, or hash" /></label>
       <span className="rs-fm-tool-sep" />
       <button type="button" className="rs-fm-tool" disabled={none} onClick={() => act('start', 'start')}><Play size={15} /> Start</button>
       <button type="button" className="rs-fm-tool" disabled={none} onClick={() => act('stop', 'stop')}><Pause size={15} /> Stop</button>
@@ -216,6 +274,33 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
           {(snap.categories || []).map(c => <DropdownMenuItem key={c.name} onSelect={() => categorize(c.name)}>{c.name}</DropdownMenuItem>)}
         </DropdownMenuContent>
       </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><button type="button" className="rs-fm-tool" disabled={none}><Tags size={15} /> Tag <ChevronDown size={13} /></button></DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <form className="rs-dl-menu-form" onSubmit={e => { e.preventDefault(); applyTags([tagName], []); }}>
+            <input value={tagName} onChange={e => setTagName(e.target.value)} placeholder="New tag" aria-label="New tag"
+              onKeyDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()} />
+            <Button type="submit" size="sm" variant="secondary" disabled={!tagName.trim() || busy}>Add</Button>
+          </form>
+          {!!(snap.tags || []).length && <DropdownMenuLabel>Add a tag</DropdownMenuLabel>}
+          {(snap.tags || []).map(name => <DropdownMenuItem key={name} onSelect={() => applyTags([name], [])}>{name}</DropdownMenuItem>)}
+          {!!pickedTags.length && <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Remove a tag</DropdownMenuLabel>
+            {pickedTags.map(name => <DropdownMenuItem key={`remove-${name}`} onSelect={() => applyTags([], [name])}>{name}</DropdownMenuItem>)}
+          </>}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><button type="button" className="rs-fm-tool" disabled={none}><MoreHorizontal size={15} /> More</button></DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={() => act('forceStart', 'force start')}>Force start</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => act('reannounce', 'reannounce')}>Reannounce to trackers</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => act('topPrio', 'move to the top of the queue')}>Move to top of queue</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => act('bottomPrio', 'move to the bottom of the queue')}>Move to bottom of queue</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <button type="button" className="rs-fm-tool is-danger" disabled={none} onClick={() => setDeleting(picked)}><Trash2 size={15} /> Remove…</button>
       <span className="rs-fm-tool-fill" />
       {activeCategory && <button type="button" className="rs-fm-tool" onClick={() => openCategory(activeCategory)}><Settings size={15} /> Category folder</button>}
@@ -227,10 +312,13 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
         <SortHeader id="status" label="Status" sort={sort} onSort={setSort} />
         <SortHeader id="down" label="Down" sort={sort} onSort={setSort} num />
         <SortHeader id="up" label="Up" sort={sort} onSort={setSort} num />
+        <SortHeader id="size" label="Size" sort={sort} onSort={setSort} num />
         <SortHeader id="eta" label="ETA" sort={sort} onSort={setSort} num />
+        <SortHeader id="added" label="Added" sort={sort} onSort={setSort} num />
+        <SortHeader id="peers" label="Peers" sort={sort} onSort={setSort} num />
         <SortHeader id="ratio" label="Ratio" sort={sort} onSort={setSort} num />
       </div>
-      {shown.map(t => <TorrentRow key={t.hash} t={t} selected={selected.has(t.hash)} onToggle={() => toggle(t.hash)} onOpen={() => setOpenHash(t.hash)} />)}
+      {shown.map(t => <TorrentRow key={t.hash} t={t} selected={selected.has(t.hash)} onToggle={shift => toggle(t.hash, shift)} onOpen={() => setOpenHash(t.hash)} />)}
       {!shown.length && <div className="rs-file-empty">
         <Download size={30} />
         <h2>{torrents.length ? 'Nothing here' : 'No torrents yet'}</h2>
@@ -241,6 +329,10 @@ export default function TorrentsPage({ filter, category, tag, onAdd }) {
     <div className="rs-fm-status rs-dl-statusbar">
       <span>{picked.length ? `${picked.length} of ${shown.length} selected` : `${shown.length} ${shown.length === 1 ? 'torrent' : 'torrents'}`}</span>
       <span>{formatBytes(sum.size)}</span>
+      <span className="rs-dl-status-speeds" aria-label={picked.length ? 'Speed of the selection' : 'Speed of this list'}>
+        <span className="is-down"><ArrowDown size={13} />{formatRate(sum.down)}</span>
+        <span className="is-up"><ArrowUp size={13} />{formatRate(sum.up)}</span>
+      </span>
       {snap.server?.free_space_on_disk > 0 && <span>{formatBytes(snap.server.free_space_on_disk)} free</span>}
       {snap.version && <span className="rs-dl-version">qBittorrent {snap.version}</span>}
     </div>
