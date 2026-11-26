@@ -4,7 +4,7 @@ Just want to run ReelStash on a server or home machine? Use the [one-command ins
 
 ## Local development
 
-Install Docker, Go 1.26.5, Node.js 22, and npm. Then run from the repository root:
+Install Docker, Go 1.27.4, Node.js 24, and npm. Then run from the repository root:
 
 ```bash
 npm ci --prefix ui

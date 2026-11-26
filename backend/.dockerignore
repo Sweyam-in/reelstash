@@ -1,0 +1,8 @@
+# Keep the build context to the Go sources.
+.bin/
+data/
+*.test
+*.out
+coverage*
+.DS_Store
+.env*

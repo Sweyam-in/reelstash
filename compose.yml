@@ -1,5 +1,18 @@
 # Local stack. Run with scripts/dev-docker.sh (adds --env-file .env.local).
 # To install ReelStash for real use, see docs/install.md (scripts/install.sh).
+# Hardening shared by the ReelStash containers: no privilege gain, a read-only
+# root filesystem (data lives in the mounted folders; /tmp is in memory) and no
+# Linux capabilities beyond what each needs.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  tmpfs: ["/tmp"]
+  cap_drop: ["ALL"]
+
+# The API servers start as root only to hand /app-data to PUID:PGID, then drop to it.
+x-api-caps: &api-caps
+  cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -19,6 +32,7 @@ services:
   # media-api: the media library API (browsing, playback, sign-in). It runs no
   # background jobs; anything it asks for is queued for admin-api.
   media-api:
+    <<: [*hardened, *api-caps]
     build:
       context: ./backend
       target: media
@@ -27,16 +41,19 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ${MEDIA_ROOT:-./data/media}:/mnt          # set MEDIA_ROOT in .env.local
+      - ${MEDIA_ROOT:-./data/media}:/mnt:ro       # the media server only reads your media
       - ./data/thumbnails:/app-data/thumbnails
       - ./data/posters:/app-data/posters
       - ./data/sprites:/app-data/sprites
       - ./data/previews:/app-data/previews
       - ./data/subtitles:/app-data/subtitles
       - ./data/plugins:/app-data/plugins
+      - ./data/hls:/app-data/hls                # transcode cache, shared so admin housekeeping can clear it
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER:-reelstash}:${POSTGRES_PASSWORD:-reelstash}@postgres:5432/${POSTGRES_DB:-reelstash}?sslmode=disable
       - TZ=${TZ:-UTC}
+      - PUID=${MEDIA_UID:-1000}                 # run as the owner of your media
+      - PGID=${MEDIA_GID:-1000}
       - REELSTASH_THUMBNAIL_DIR=/app-data/thumbnails
       - REELSTASH_POSTER_DIR=/app-data/posters
       - REELSTASH_SPRITE_DIR=/app-data/sprites
@@ -56,6 +73,7 @@ services:
   # admin-api: the admin API plus scans, metadata matching, thumbnails,
   # schedules, file watching, downloads and plugin bundles.
   admin-api:
+    <<: [*hardened, *api-caps]
     build:
       context: ./backend
       target: admin
@@ -71,9 +89,12 @@ services:
       - ./data/previews:/app-data/previews
       - ./data/subtitles:/app-data/subtitles
       - ./data/plugins:/app-data/plugins
+      - ./data/hls:/app-data/hls                # transcode cache, shared so admin housekeeping can clear it
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER:-reelstash}:${POSTGRES_PASSWORD:-reelstash}@postgres:5432/${POSTGRES_DB:-reelstash}?sslmode=disable
       - TZ=${TZ:-UTC}
+      - PUID=${MEDIA_UID:-1000}                 # run as the owner of your media
+      - PGID=${MEDIA_GID:-1000}
       - REELSTASH_THUMBNAIL_DIR=/app-data/thumbnails
       - REELSTASH_POSTER_DIR=/app-data/posters
       - REELSTASH_SPRITE_DIR=/app-data/sprites
@@ -99,6 +120,7 @@ services:
 
   # reelstash-media: the media library app. Its nginx proxies to media-api.
   media:
+    <<: *hardened
     build:
       context: ./media
       dockerfile: Dockerfile
@@ -110,6 +132,7 @@ services:
 
   # reelstash-admin: ReelStash Admin, Files and Downloads, built and run on its own.
   admin:
+    <<: *hardened
     build:
       context: ./admin
       dockerfile: Dockerfile
@@ -148,6 +171,8 @@ services:
       - PGID=${MEDIA_GID:-1000}
       - UMASK=002
       - TZ=${TZ:-UTC}
+      - PUID=${MEDIA_UID:-1000}                 # run as the owner of your media
+      - PGID=${MEDIA_GID:-1000}
       - WEBUI_PORT=8080
       - TORRENTING_PORT=${TORRENT_PORT:-6881}
     volumes:

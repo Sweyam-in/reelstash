@@ -73,3 +73,10 @@ For the local stack, rebuild and restart with `docker compose up --build -d`. Us
 | Database startup fails | Confirm `DATABASE_URL`, database readiness, and the PostgreSQL schema error reported in API logs. |
 
 On a network mount, a blocked filesystem call can delay scanning even when the scan's stall detection reports failure. Resolve the mount itself before repeatedly retrying scans.
+
+## Container hardening
+
+The API images start as root only long enough to make their data folders under `/app-data` writable for `PUID:PGID` (Compose sets these from `MEDIA_UID`/`MEDIA_GID`, the owner of your media), then run as that user. Every container has a read-only root filesystem with `/tmp` in memory, `no-new-privileges`, and no Linux capabilities beyond the few the API entrypoint needs to change folder owners. The media API mounts your media read-only; only the admin API (organizer, renames, DVD conversion, downloads) writes to it.
+
+Upgrading from an install whose API ran as root: files it created under your media folder may be owned by root. Give them to the media owner once (`sudo chown -R <uid>:<gid> /path/to/media/...`), or set `PUID=0` on the admin API to keep running it as root.
+

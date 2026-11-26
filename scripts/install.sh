@@ -75,6 +75,18 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "5"
 
+# Hardening: no privilege gain, a read-only root filesystem (data lives in the
+# volumes; /tmp is in memory) and no Linux capabilities beyond what each needs.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  tmpfs: ["/tmp"]
+  cap_drop: ["ALL"]
+
+# The API servers start as root only to hand /app-data to PUID:PGID, then drop to it.
+x-api-caps: &api-caps
+  cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -95,6 +107,7 @@ services:
 
   # The media library API: browsing, playback, sign-in. It runs no jobs.
   media-api:
+    <<: [*hardened, *api-caps]
     image: ${REELSTASH_MEDIA_API_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     stop_grace_period: 30s
@@ -105,6 +118,9 @@ services:
       DATABASE_URL: postgres://reelstash:${POSTGRES_PASSWORD}@postgres:5432/reelstash?sslmode=disable
       REELSTASH_ADDR: :8902
       TZ: ${TZ:-UTC}
+      # Run as the owner of your media (the installer reads it from your media folder).
+      PUID: ${MEDIA_UID:-1000}
+      PGID: ${MEDIA_GID:-1000}
       REELSTASH_THUMBNAIL_DIR: /app-data/thumbnails
       REELSTASH_POSTER_DIR: /app-data/posters
       REELSTASH_SPRITE_DIR: /app-data/sprites
@@ -116,13 +132,14 @@ services:
       REELSTASH_ADMIN_URLS: ${REELSTASH_ADMIN_URLS:-}
       EMERGENCY_LOCAL_AUTH: "false"
     volumes:
-      - ${MEDIA_ROOT}:/mnt
+      - ${MEDIA_ROOT}:/mnt:ro   # the media server only reads your media
       - thumbnail_data:/app-data/thumbnails
       - poster_data:/app-data/posters
       - sprite_data:/app-data/sprites
       - preview_data:/app-data/previews
       - subtitle_data:/app-data/subtitles
       - plugin_data:/app-data/plugins
+      - hls_data:/app-data/hls
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8902/healthz"]
       interval: 15s
@@ -134,6 +151,7 @@ services:
   # The admin API, plus scans, metadata matching, thumbnails, schedules,
   # downloads and plugin bundles.
   admin-api:
+    <<: [*hardened, *api-caps]
     image: ${REELSTASH_ADMIN_API_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     stop_grace_period: 30s
@@ -144,6 +162,9 @@ services:
       DATABASE_URL: postgres://reelstash:${POSTGRES_PASSWORD}@postgres:5432/reelstash?sslmode=disable
       REELSTASH_ADDR: :8903
       TZ: ${TZ:-UTC}
+      # Run as the owner of your media (the installer reads it from your media folder).
+      PUID: ${MEDIA_UID:-1000}
+      PGID: ${MEDIA_GID:-1000}
       REELSTASH_THUMBNAIL_DIR: /app-data/thumbnails
       REELSTASH_POSTER_DIR: /app-data/posters
       REELSTASH_SPRITE_DIR: /app-data/sprites
@@ -168,6 +189,7 @@ services:
       - preview_data:/app-data/previews
       - subtitle_data:/app-data/subtitles
       - plugin_data:/app-data/plugins
+      - hls_data:/app-data/hls
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8903/healthz"]
       interval: 15s
@@ -178,6 +200,7 @@ services:
 
   # The media library.
   ui:
+    <<: *hardened
     image: ${REELSTASH_UI_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
@@ -195,6 +218,7 @@ services:
 
   # Admin, Files and Downloads, on their own port.
   admin:
+    <<: *hardened
     image: ${REELSTASH_ADMIN_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
@@ -255,6 +279,7 @@ volumes:
   preview_data:
   subtitle_data:
   plugin_data:
+  hls_data:
   qbittorrent_config:
 EOF
 }
@@ -461,6 +486,9 @@ if [ "$UPGRADE" = 0 ]; then
 		echo "REELSTASH_IMAGE_TAG=$TAG"
 		echo ""
 		echo "MEDIA_ROOT=$MEDIA"
+		echo "# The API servers (and qBittorrent) run as the owner of your media."
+		echo "MEDIA_UID=$MEDIA_UID"
+		echo "MEDIA_GID=$MEDIA_GID"
 		echo "TZ=${TZ_NAME:-UTC}"
 		echo "POSTGRES_PASSWORD=$PG_PASS"
 		echo ""
@@ -483,8 +511,6 @@ if [ "$UPGRADE" = 0 ]; then
 			echo "QBIT_BIND_ADDR=127.0.0.1"
 			echo "QBIT_WEBUI_PORT=8080"
 			echo "TORRENT_PORT=6881"
-			echo "MEDIA_UID=$MEDIA_UID"
-			echo "MEDIA_GID=$MEDIA_GID"
 		fi
 	} >"$ENV_FILE"
 	chmod 600 "$ENV_FILE"
@@ -509,6 +535,19 @@ else
 			echo "REELSTASH_ADMIN_API_IMAGE=$(printf '%s' "$OLD_API" | sed 's|reelstash-api$|reelstash-admin-api|')"
 		} >>"$ENV_FILE"
 		say "Updated $ENV_FILE for the separate media and admin API servers."
+	fi
+	# The API servers no longer run as root: they run as the media's owner.
+	if [ -z "$(env_get MEDIA_UID)" ]; then
+		OWNER=$(owner_of "$(env_get MEDIA_ROOT)")
+		MEDIA_UID=${OWNER%%:*}; MEDIA_GID=${OWNER##*:}
+		{ [ -n "$MEDIA_UID" ] && [ "$MEDIA_UID" != 0 ]; } || { MEDIA_UID=1000; MEDIA_GID=1000; }
+		{
+			echo ""
+			echo "# Added by the installer: the API servers run as the owner of your media."
+			echo "MEDIA_UID=$MEDIA_UID"
+			echo "MEDIA_GID=$MEDIA_GID"
+		} >>"$ENV_FILE"
+		say "The API servers now run as $MEDIA_UID:$MEDIA_GID (MEDIA_UID/MEDIA_GID in $ENV_FILE)."
 	fi
 	HOST_NAME=$(env_get REELSTASH_MEDIA_URLS | sed 's|^http://||; s|:[0-9]*$||')
 	UI_PORT=$(env_get REELSTASH_UI_PORT); ADMIN_PORT=$(env_get REELSTASH_ADMIN_PORT)

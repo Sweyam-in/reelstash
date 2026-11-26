@@ -35,7 +35,7 @@ For a local SQLite installation, see [macOS and Linux Snap packaging](docs/local
 
 ## Quick start for development
 
-Prerequisites: Docker, Go **1.27.3** (as specified in `backend/go.mod`), and Node.js **22** with npm (the version used by the UI Docker build).
+Prerequisites: Docker, Go **1.27.4** (as specified in `backend/go.mod`), and Node.js **24** with npm (the version used by the UI Docker build).
 
 ```bash
 npm ci --prefix media

@@ -26,7 +26,7 @@ scripts/test.sh                        Combined test command
 
 ## Run and build
 
-Install Go 1.26.5, Node.js 22, npm, and Docker. The backend Dockerfile installs ffmpeg and ffprobe; install them on the host for direct Go development.
+Install Go 1.27.4, Node.js 24, npm, and Docker. The backend Dockerfile installs ffmpeg and ffprobe; install them on the host for direct Go development.
 
 ```bash
 npm ci --prefix media
