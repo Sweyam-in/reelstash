@@ -60,7 +60,8 @@ const PluginsChanged = "plugins"
 // to a plugin bundle, so other server processes pick it up.
 func (a *API) announcePluginChanges(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet || a.Hub == nil {
+		// Reads, and asking an update source what is new, change nothing.
+		if r.Method == http.MethodGet || a.Hub == nil || strings.HasSuffix(r.URL.Path, "/check-update") {
 			next.ServeHTTP(w, r)
 			return
 		}

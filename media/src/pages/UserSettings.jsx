@@ -40,7 +40,7 @@ const idleLabel = m => m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' :
 const modeIcon = mode => mode === 'private' ? Lock : Clapperboard;
 
 const sectionId = title => `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
-const NAV = ['Default library', 'Theme', 'Title artwork', 'Audio and subtitles', 'PIN lock', 'Your library data', 'Devices', 'Password'];
+const NAV = ['Default library', 'Theme', 'Title artwork', 'Grid size', 'Audio and subtitles', 'PIN lock', 'Your library data', 'Devices', 'Password'];
 
 function Section({ title, description, children }) {
   return <section className="rs-user-settings-section" id={sectionId(title)} aria-labelledby={`${sectionId(title)}-title`}>
