@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
-  FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
 } from '@spatika/react';
 import { Combine, ImageUp, Search, Trash2, X } from 'lucide-react';
 import {
   deleteStudio, deleteStudioImage, getMediaItems, getStudio, getStudioDuplicates, getStudioMatchJob, getStudios, linkStudioMedia, matchStudioProvider, mergeStudio,
   searchStudioProviders, studioImageUrl, unlinkStudioMedia, unmatchStudioProvider, updateStudio, uploadStudioImage,
 } from '../api';
+import { EditorHeading, titleCount } from './EditorHeading';
+import { SaveRow, useCloseGuard, useDetailsDraft } from './editorParts';
 import { PerformerMatch } from './PerformerMatch';
 import { TitleThumb } from './PerformerSettings';
 
@@ -29,20 +30,22 @@ function titleMeta(item, studioId) {
   return parts.length ? <small>{parts.join(' · ')}</small> : null;
 }
 
-function DetailsTab({ studio, onSaved, onDeleted }) {
+const studioFields = studio => ({ name: studio.name || '', website: studio.website || '', description: studio.description || '' });
+
+function DetailsTab({ studio, draft, onSaved, onDeleted }) {
   const { toast } = useToast();
-  const [name, setName] = useState(studio.name || '');
-  const [website, setWebsite] = useState(studio.website || '');
-  const [description, setDescription] = useState(studio.description || '');
+  const { name, website, description } = draft.value;
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function save(event) {
     event.preventDefault();
+    if (!draft.dirty || !name.trim()) return;
     setBusy(true);
     try {
-      const result = await updateStudio(studio.id, { name: name.trim(), website, description });
+      const result = await updateStudio(studio.id, { name: name.trim(), website: website.trim(), description });
       toast({ title: 'Studio saved', description: result.nfoFailed ? `${result.nfoFailed} NFO files could not be updated.` : result.nfoUpdated ? `Updated ${result.nfoUpdated} NFO ${result.nfoUpdated === 1 ? 'file' : 'files'} with the new name.` : undefined, tone: result.nfoFailed ? 'warn' : 'success' });
+      draft.reset();
       onSaved();
     } catch (err) {
       toast({ title: 'Could not save studio', description: err.message, tone: 'danger' });
@@ -64,11 +67,10 @@ function DetailsTab({ studio, onSaved, onDeleted }) {
   }
 
   return <form className="rs-pm-form" onSubmit={save}>
-    <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
-    <FormField label="Website"><Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="Optional" /></FormField>
-    <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" /></FormField>
-    <p className="rs-pm-muted">Renaming also rewrites the studio in the NFO file of each of its titles.</p>
-    <div><Button type="submit" disabled={busy || !name.trim()}>Save changes</Button></div>
+    <FormField label="Name" error={name.trim() ? undefined : 'Enter a name.'} description={name.trim() !== studio.name ? 'Renaming also rewrites the studio in the NFO file of each of its titles.' : undefined}><Input value={name} onChange={e => draft.set({ name: e.target.value })} /></FormField>
+    <FormField label="Website" optional><Input type="url" inputMode="url" placeholder="https://" value={website} onChange={e => draft.set({ website: e.target.value })} /></FormField>
+    <FormField label="Description" optional description="Shown on the studio's page in the library."><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => draft.set({ description: e.target.value })} /></FormField>
+    <SaveRow dirty={draft.dirty} busy={busy} invalid={!name.trim()} onDiscard={draft.reset} />
     <div className="rs-pm-danger">
       <p className="rs-eyebrow">Delete studio</p>
       <p className="rs-pm-muted">Its videos are left without a studio. Video files and NFO files are not touched.</p>
@@ -339,21 +341,24 @@ export default function StudioSettings({ studioId, open, onOpenChange, onChanged
     else load().catch(() => {});
   }
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
+  const draft = useDetailsDraft(studio, studioFields);
+  const [requestOpenChange, discardPrompt] = useCloseGuard(draft.dirty, onOpenChange, draft.reset);
+
+  return <Dialog open={open} onOpenChange={requestOpenChange}>
     <DialogContent size="xl" className="rs-pm is-studio">
-      <DialogHeader><DialogTitle>{studio ? `${studio.name} · settings` : 'Studio settings'}</DialogTitle></DialogHeader>
+      <DialogHeader><EditorHeading kind="Studio" name={studio?.name} facts={[studio && titleCount(studio.mediaCount)]} libraryPath={studio && `/studios/${studio.id}`} /></DialogHeader>
       <DialogBody>
         {!studio && <p className="rs-pm-muted">Loading…</p>}
         {studio && <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="details">Details{draft.dirty && <span className="rs-pm-dirty" aria-label="Unsaved changes" />}</TabsTrigger>
             <TabsTrigger value="match">Metadata Providers</TabsTrigger>
             <TabsTrigger value="logo">Logo</TabsTrigger>
             <TabsTrigger value="videos">Videos</TabsTrigger>
             <TabsTrigger value="merge">Duplicates &amp; merge</TabsTrigger>
           </TabsList>
           <div className="rs-pm-panel">
-            <TabsContent value="details"><DetailsTab key={`${studio.id}-${studio.name}`} studio={studio} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
+            <TabsContent value="details"><DetailsTab key={studio.id} studio={studio} draft={draft} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
             <TabsContent value="match"><PerformerMatch kind="studio" performer={studio} onUpdated={changed} imageUrl={studioImageUrl} searchRemote={searchStudioProviders} matchRemote={matchStudioProvider} loadJob={getStudioMatchJob} imageField="logoImageId" unmatchRemote={unmatchStudioProvider} allowMarkWrong={false} /></TabsContent>
             <TabsContent value="logo"><LogoTab studio={studio} onChanged={changed} /></TabsContent>
             <TabsContent value="videos"><VideosTab studio={studio} onChanged={changed} /></TabsContent>
@@ -362,5 +367,6 @@ export default function StudioSettings({ studioId, open, onOpenChange, onChanged
         </Tabs>}
       </DialogBody>
     </DialogContent>
+    {discardPrompt}
   </Dialog>;
 }

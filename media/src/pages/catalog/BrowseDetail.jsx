@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Globe, Heart, Bell, BellRing, Play, SearchX, Settings2, Shuffle } from 'lucide-react';
+import { Globe, Heart, Bell, BellRing, Play, SearchX, Shuffle } from 'lucide-react';
 import { splitBio } from '../../bioFacts';
 import { useToast } from '../../ui';
 import { getCategories, getPerformer, getSeriesItem, getStudio, performerImageUrl, setPerformerFavorite, setPerformerNotify, getRelatedPerformers } from '../../api';
@@ -10,7 +10,6 @@ import { FilterSelect } from '../../components/FilterControls';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 import { useColumnCount, useInfiniteList, VirtualWindow } from '../../virtual';
 import { cardMetrics, useCardDensity, useCardStyle } from '../../cardStyle';
-import { editInAdmin } from '../../appLinks';
 import { useMediaList, displayTitle, toneClass, formatRuntime, Artwork, MediaCard, Shelf, HERO_SLIDE_COUNT, HeroCarousel, Status, plural, useStudioNames, PlayButtons, mediaQuery, WATCHED_FILTERS, dimensionTerms, dimensions, DirectoryMark, countLabel, hashString } from './shared';
 
 // Studio / rating / sort filters shared by the Library and the performer / studio / category / series pages.
@@ -78,15 +77,14 @@ export function ageFrom(value) {
   return age >= 0 && age < 120 ? age : null;
 }
 
-export function SeriesHero({ entity, name, countLabel, onSettings }) {
+export function SeriesHero({ entity, name, countLabel }) {
   const facts = [entity?.releaseDate?.slice(0, 4), entity?.studioName].filter(Boolean);
   return <header className="rs-page-header rs-entity-header rs-studio-hero rs-series-hero">
     {entity && <span className="rs-series-hero-poster"><SeriesCover series={entity} /></span>}
     <div><p className="rs-eyebrow">SERIES / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{[countLabel, ...facts].join('  ·  ')}</p>
       {entity?.description && <p className="rs-entity-description">{entity.description}</p>}
-      {entity && !entity.mediaCount && <p>Open Settings to add videos, or match the series with a provider and pair its scenes.</p>}
+      {entity && !entity.mediaCount && <p>No videos here yet.</p>}
     </div>
-    {entity && onSettings && <div className="rs-studio-hero-actions"><button type="button" className="rs-button rs-button-outline" onClick={onSettings}><Settings2 size={17} /> Settings</button></div>}
   </header>;
 }
 
@@ -136,11 +134,10 @@ export function BrowseDetail({ type }) {
     getRelatedPerformers(id, 12).then(result => { if (live) setSimilar(result.items || []); }).catch(() => {});
     return () => { live = false; };
   }, [type, id]);
-  const { terms, isAdmin } = useLibrary();
+  const { terms } = useLibrary();
   const config = { ...dimensions[type], ...dimensionTerms(type, terms) };
   const [name, setName] = useState('');
   const [entity, setEntity] = useState(null);
-  const editEntity = () => editInAdmin(type, entity.id);
   const navigate = useNavigate();
   const [studio, setStudio] = useState('all');
   const defaultSort = type === 'series' ? 'series' : type === 'performers' ? 'watched' : 'recent';
@@ -230,7 +227,7 @@ export function BrowseDetail({ type }) {
         {total > 0 && <PlayButtons filters={listFilters} shuffleLabel={`Shuffle ${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`} />}
         <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
         <button type="button" className={`rs-button rs-button-outline ${entity.notify ? 'is-favorite' : ''}`} aria-pressed={!!entity.notify} onClick={toggleNotify}>{entity.notify ? <BellRing size={17} /> : <Bell size={17} />} {entity.notify ? 'Notifying you about new titles' : 'Notify me about new titles'}</button>
-        {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button>}
+        
       </div>}
       {entity && total > 0 && <dl className="rs-person-stats" aria-label="Your watching">
         <div><dt>Watched</dt><dd>{watchedTotal.toLocaleString()} of {total.toLocaleString()}</dd></div>
@@ -238,19 +235,18 @@ export function BrowseDetail({ type }) {
         <div><dt>Favorites</dt><dd>{favoriteTotal.toLocaleString()}</dd></div>
         <div><dt>Your avg rating</dt><dd>{insights.avgRating ? `★ ${insights.avgRating.toFixed(1)}` : '—'}</dd></div>
       </dl>}
-    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} onSettings={isAdmin && entity ? editEntity : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
+    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
       {type === 'studios' && entity && <span className={`rs-studio-hero-logo${entity.logoImageId ? '' : ' is-mono'}`}><DirectoryMark item={entity} index={0} type="studios" /></span>}
       {portrait && entity && <span className="rs-entity-portrait"><DirectoryMark item={entity} index={0} type="performers" portrait /></span>}
       <div><p className="rs-eyebrow">{config.singular.toUpperCase()} / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{collectionLabel}</p>
         {type === 'performers' && entity && (entity.notes || entity.metadata?.bio) && <p className="rs-performer-bio rs-entity-description">{entity.notes || entity.metadata.bio}</p>}
         {type === 'performers' && entity && <div className="rs-detail-actions">
           <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
-          {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button>}
+          
         </div>}
         {type === 'studios' && entity?.website && <a className="rs-studio-website" href={/^https?:\/\//i.test(entity.website) ? entity.website : `https://${entity.website}`} target="_blank" rel="noopener noreferrer"><Globe size={15} /> {entity.website.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</a>}
         {type === 'studios' && entity?.description && <p className="rs-entity-description">{entity.description}</p>}
       </div>
-      {isAdmin && type === 'studios' && entity && <div className="rs-studio-hero-actions"><button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button></div>}
     </header>}
     <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length} retry={refresh} />
     {type === 'performers' && <StartHere titles={personTitles} name={name || terms.person.toLowerCase()} />}

@@ -242,6 +242,24 @@ type updatePerformerRequest struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
 	Notes       string `json:"notes"`
+	// Aliases, when sent, replaces the other names the person is known by.
+	Aliases *[]string `json:"aliases"`
+}
+
+// cleanAliases trims aliases and drops blanks, repeats and the person's own name.
+func cleanAliases(name string, aliases []string) []string {
+	seen := map[string]bool{strings.ToLower(name): true}
+	out := []string{}
+	for _, raw := range aliases {
+		alias := strings.TrimSpace(raw)
+		key := strings.ToLower(alias)
+		if alias == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, alias)
+	}
+	return out
 }
 
 func (a *API) updatePerformer(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +303,18 @@ func (a *API) updatePerformer(w http.ResponseWriter, r *http.Request) {
 	if tag.RowsAffected() == 0 {
 		writeError(w, http.StatusNotFound, "performer not found")
 		return
+	}
+	if req.Aliases != nil {
+		if _, err := a.DB.Exec(r.Context(), `DELETE FROM performer_alias WHERE performer_id = $1`, id); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save aliases")
+			return
+		}
+		for _, alias := range cleanAliases(req.Name, *req.Aliases) {
+			if _, err := a.DB.Exec(r.Context(), `INSERT INTO performer_alias (performer_id, alias) VALUES ($1, $2) ON CONFLICT DO NOTHING`, id, alias); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to save aliases")
+				return
+			}
+		}
 	}
 	resp := map[string]any{"id": id}
 	if oldName != req.Name {

@@ -9,6 +9,8 @@ import {
   artworkUrl, choosePerformerPhoto, getPerformerFieldSources, setPerformerFieldSources, createPerformer, deletePerformerPhoto, fetchPerformerPhotos, getPerformerPhotos, getProviders, performerPhotoUrl, dismissPerformerDuplicate, getMediaItems, getPerformer, getPerformerDuplicates, getPerformerMedia, getPerformers,
   deletePerformer, linkPerformerMedia, mergePerformer, unlinkPerformerMedia, unmatchPerformerProvider, performerImageUrl, updatePerformer, uploadPerformerImage,
 } from '../api';
+import { EditorHeading, titleCount } from './EditorHeading';
+import { ChipEditor, SaveRow, useCloseGuard, useDetailsDraft } from './editorParts';
 import { PerformerMatch } from './PerformerMatch';
 
 function Avatar({ member }) {
@@ -87,20 +89,22 @@ export function DuplicateList({ pairs, currentId, onDone, onDismiss, empty }) {
   </div>;
 }
 
-function DetailsTab({ performer, onSaved, onDeleted }) {
+export const performerFields = performer => ({ name: performer.name || '', displayName: performer.displayName || '', notes: performer.notes || '', aliases: performer.aliases || [] });
+
+function DetailsTab({ performer, draft, onSaved, onDeleted }) {
   const { toast } = useToast();
-  const [name, setName] = useState(performer.name || '');
-  const [displayName, setDisplayName] = useState(performer.displayName || '');
-  const [notes, setNotes] = useState(performer.notes || '');
+  const { name, displayName, notes, aliases } = draft.value;
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function save(event) {
     event.preventDefault();
+    if (!draft.dirty || !name.trim()) return;
     setBusy(true);
     try {
-      const result = await updatePerformer(performer.id, { name, displayName, notes });
-      toast({ title: 'Performer saved', description: result.nfoFailed?.length ? `${result.nfoFailed.length} NFO files could not be updated.` : result.nfoUpdated ? `Updated ${result.nfoUpdated} NFO ${result.nfoUpdated === 1 ? 'file' : 'files'} with the new name.` : undefined, tone: result.nfoFailed?.length ? 'warn' : 'success' });
+      const result = await updatePerformer(performer.id, { name: name.trim(), displayName, notes, aliases });
+      toast({ title: 'Saved', description: result.nfoFailed?.length ? `${result.nfoFailed.length} NFO files could not be updated.` : result.nfoUpdated ? `Updated ${result.nfoUpdated} NFO ${result.nfoUpdated === 1 ? 'file' : 'files'} with the new name.` : undefined, tone: result.nfoFailed?.length ? 'warn' : 'success' });
+      draft.reset();
       onSaved();
     } catch (err) {
       toast({ title: 'Could not save performer', description: err.message, tone: 'danger' });
@@ -122,11 +126,11 @@ function DetailsTab({ performer, onSaved, onDeleted }) {
   }
 
   return <form className="rs-pm-form" onSubmit={save}>
-    <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
-    <FormField label="Display name"><Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Optional" /></FormField>
-    <FormField label="Description"><textarea className="rs-pm-textarea" rows={6} value={notes} placeholder="Shown on the performer page. Leave empty to show the bio from your metadata providers, if there is one." onChange={e => setNotes(e.target.value)} /></FormField>
-    {!!performer.aliases?.length && <div><p className="rs-eyebrow">Also known as</p><p className="rs-pm-chips">{performer.aliases.map(alias => <span key={alias}>{alias}</span>)}</p></div>}
-    <div><Button type="submit" disabled={busy || !name.trim()}>Save changes</Button></div>
+    <FormField label="Name" error={name.trim() ? undefined : 'Enter a name.'} description={name.trim() !== performer.name ? 'Renaming rewrites the name in the NFO file of each of their titles and keeps the old name as an alias.' : undefined}><Input value={name} onChange={e => draft.set({ name: e.target.value })} /></FormField>
+    <FormField label="Display name" optional description="Shown in the library instead of the name, for example a stage name."><Input value={displayName} onChange={e => draft.set({ displayName: e.target.value })} /></FormField>
+    <FormField label="Description" optional description="Shown on their page in the library. Leave empty to show the bio from your metadata providers, if there is one."><textarea className="rs-pm-textarea" rows={6} value={notes} onChange={e => draft.set({ notes: e.target.value })} /></FormField>
+    <ChipEditor label="Also known as" values={aliases} onChange={next => draft.set({ aliases: next })} placeholder="Add another name" hint="Scans and provider matches use these names to find this person." />
+    <SaveRow dirty={draft.dirty} busy={busy} invalid={!name.trim()} onDiscard={draft.reset} />
     <div className="rs-pm-danger">
       <p className="rs-eyebrow">Delete performer</p>
       <p className="rs-pm-muted">The performer is removed from all of their titles. Video files and NFO files are not touched.</p>
@@ -445,14 +449,17 @@ export default function PerformerSettings({ performerId, open, onOpenChange, onC
     else load().catch(() => {});
   }
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
+  const draft = useDetailsDraft(performer, performerFields);
+  const [requestOpenChange, discardPrompt] = useCloseGuard(draft.dirty, onOpenChange, draft.reset);
+
+  return <Dialog open={open} onOpenChange={requestOpenChange}>
     <DialogContent size="xl" className="rs-pm">
-      <DialogHeader><DialogTitle>{performer ? `${performer.name} · settings` : 'Performer settings'}</DialogTitle></DialogHeader>
+      <DialogHeader><EditorHeading kind="Person" name={performer?.name} facts={[performer && titleCount(performer.mediaCount), performer?.aliases?.length ? `aka ${performer.aliases.slice(0, 2).join(', ')}` : null]} libraryPath={performer && `/performers/${performer.id}`} /></DialogHeader>
       <DialogBody>
         {!performer && <p className="rs-pm-muted">Loading…</p>}
         {performer && <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="details">Details{draft.dirty && <span className="rs-pm-dirty" aria-label="Unsaved changes" />}</TabsTrigger>
             <TabsTrigger value="photo">Photos</TabsTrigger>
             <TabsTrigger value="titles">Titles</TabsTrigger>
             <TabsTrigger value="match">Metadata Providers</TabsTrigger>
@@ -464,13 +471,14 @@ export default function PerformerSettings({ performerId, open, onOpenChange, onC
               {(performer.links || []).length > 1 && <FieldSources key={`${performer.id}:${performer.links.map(l => l.provider).join()}`} performer={performer} onChanged={changed} />}
             </TabsContent>
             <TabsContent value="photo"><PhotoTab performer={performer} onChanged={changed} /></TabsContent>
-            <TabsContent value="details"><DetailsTab key={performer.id} performer={performer} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
+            <TabsContent value="details"><DetailsTab key={performer.id} performer={performer} draft={draft} onSaved={changed} onDeleted={() => { onOpenChange(false); onChanged?.(); onDeleted?.(); }} /></TabsContent>
             <TabsContent value="titles"><TitlesTab performer={performer} onChanged={changed} /></TabsContent>
             <TabsContent value="merge"><MergeTab performer={performer} onMerged={merged} /></TabsContent>
           </div>
         </Tabs>}
       </DialogBody>
     </DialogContent>
+    {discardPrompt}
   </Dialog>;
 }
 
@@ -503,7 +511,7 @@ export function NewPerformerDialog({ open, onOpenChange, onCreated }) {
       <DialogBody>
         <form className="rs-pm-form" onSubmit={submit}>
           <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} autoFocus /></FormField>
-          <FormField label="Description"><textarea className="rs-pm-textarea" rows={4} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" /></FormField>
+          <FormField label="Description" optional><textarea className="rs-pm-textarea" rows={4} value={notes} onChange={e => setNotes(e.target.value)} /></FormField>
           <p className="rs-pm-muted">After creating, open Settings to link titles, add a photo, or match with a metadata provider.</p>
           <div><Button type="submit" disabled={busy || !name.trim()}>Create performer</Button></div>
         </form>

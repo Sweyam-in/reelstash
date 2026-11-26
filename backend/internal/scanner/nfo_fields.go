@@ -19,10 +19,13 @@ type NFOFields struct {
 	Performers *[]string // replaces the cast, in this order; kept actors retain their extra fields
 	Season     *int
 	Episode    *int
+	// Premiered is a YYYY-MM-DD release date, also written as <year>; "" removes both.
+	Premiered *string
 }
 
 var (
 	nfoGenreBlock = regexp.MustCompile(`(?s)[ \t]*(?:<(genre|tag)>.*?</(?:genre|tag)>|<(?:genre|tag)\s*/>)[ \t]*\r?\n?`)
+	nfoDateBlock  = regexp.MustCompile(`(?s)[ \t]*(?:<(premiered|releasedate|year)>.*?</(?:premiered|releasedate|year)>|<(?:premiered|releasedate|year)\s*/>)[ \t]*\r?\n?`)
 )
 
 func nfoEscape(value string) string {
@@ -73,6 +76,14 @@ func EditNFO(path string, f NFOFields) (bool, error) {
 	}
 	if f.Studio != nil {
 		doc = setNFOElement(doc, "studio", *f.Studio)
+	}
+	if f.Premiered != nil {
+		if *f.Premiered == "" {
+			doc = nfoDateBlock.ReplaceAllString(doc, "")
+		} else {
+			doc = setNFOElement(doc, "premiered", *f.Premiered)
+			doc = setNFOElement(doc, "year", (*f.Premiered)[:4])
+		}
 	}
 	if f.Season != nil {
 		doc = setNFOElement(doc, "season", strconv.Itoa(*f.Season))

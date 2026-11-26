@@ -137,7 +137,6 @@ export const setPerformerNotify = (id, notify) => put(`/api/performers/${id}/not
 export const getStudios = (params = {}) => get(`/api/studios?${new URLSearchParams(params)}`);
 export const getStudio = id => get(`/api/studios/${id}`);
 export const getSeries = (params = {}) => get(`/api/series?${new URLSearchParams(params)}`);
-export const createSeries = payload => post('/api/series', payload);
 export const getSeriesItem = id => get(`/api/series/${id}`);
 export const seriesImageUrl = (id, imageId) => `/api/series/${id}/image${imageId ? `?v=${imageId}` : ''}`;
 export const seriesBackdropUrl = (id, imageId) => `/api/series/${id}/backdrop${imageId ? `?v=${imageId}` : ''}`;

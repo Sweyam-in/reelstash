@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger,
   FormField, Input, SegmentedControl, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
 } from '@spatika/react';
 import { ArrowDown, ArrowUp, Film, ImageUp, ChevronDown, Minus, Plus, RefreshCw, Search, Sparkles, Trash2, Unlink, X } from 'lucide-react';
 import {
   artworkUrl, deleteMediaItem, deleteMediaPoster, deleteMediaBackdrop, mediaFrameUrl, requestPreview, setPosterFromFrame, setBackdropFromFrame, uploadMediaPoster, uploadMediaBackdrop, getCategories, getMediaItem, getMediaMatchState, getMediaLinkedRecords, getProviders, linkMediaProvider, getPerformers, getSeries, getStudios, performerImageUrl, setMediaReel, setMediaSeries, studioImageUrl, matchMediaProvider, searchMediaProviders, unmatchMediaProvider, updateMediaMetadata,
 } from '../api';
+import { EditorHeading } from './EditorHeading';
+import { ChipEditor } from './editorParts';
 import { SearchCombobox, Thumb } from '../components/SearchCombobox';
 import { VideosTab as SeriesVideos } from './SeriesSettings';
 import MediaTracksTab from './MediaTracksTab';
@@ -481,28 +481,6 @@ function DeleteTab({ item, onDeleted }) {
   </div>;
 }
 
-function ChipEditor({ label, values, onChange, suggestions, placeholder }) {
-  const [text, setText] = useState('');
-  function add() {
-    const value = text.trim();
-    if (value && !values.some(existing => existing.toLowerCase() === value.toLowerCase())) onChange([...values, value]);
-    setText('');
-  }
-  const listId = `rs-chip-${label.replace(/\W/g, '')}`;
-  return <div>
-    <p className="rs-eyebrow">{label}</p>
-    <p className="rs-pm-chips rs-pm-chips-edit">
-      {values.map(value => <span key={value}>{value}<button type="button" aria-label={`Remove ${value}`} onClick={() => onChange(values.filter(v => v !== value))}><X size={12} /></button></span>)}
-      {!values.length && <small className="rs-pm-muted">None</small>}
-    </p>
-    <div className="rs-match-search">
-      <input list={listId} value={text} placeholder={placeholder} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
-      <datalist id={listId}>{suggestions.map(name => <option key={name} value={name} />)}</datalist>
-      <button type="button" className="rs-button rs-button-outline" disabled={!text.trim()} onClick={add}><Plus size={15} /> Add</button>
-    </div>
-  </div>;
-}
-
 function DetailsTab({ draft, update, onSubmit, files = [] }) {
   const originals = files.filter(f => f.originalFileName && f.originalFileName !== f.fileName);
   const [categoryNames, setCategoryNames] = useState([]);
@@ -513,7 +491,8 @@ function DetailsTab({ draft, update, onSubmit, files = [] }) {
 
   return <form className="rs-pm-form" onSubmit={event => { event.preventDefault(); onSubmit(); }}>
     <FormField label="Title"><Input value={draft.title} onChange={e => update({ title: e.target.value })} /></FormField>
-    <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={draft.description} onChange={e => update({ description: e.target.value })} placeholder="Optional" /></FormField>
+    <FormField label="Description" optional><textarea className="rs-pm-textarea" rows={5} value={draft.description} onChange={e => update({ description: e.target.value })} /></FormField>
+    <FormField label="Release date" optional description="Written to the NFO file as the premiere date and year. Leave empty if it is not known."><Input type="date" className="rs-pm-date" value={draft.releaseDate} max="9999-12-31" onChange={e => update({ releaseDate: e.target.value })} /></FormField>
     <ChipEditor label="Categories" values={draft.categories} onChange={categories => update({ categories })} suggestions={categoryNames} placeholder="Add a category" />
     {!!originals.length && <div className="rs-pm-original">
       <p className="rs-eyebrow">Original file name{originals.length > 1 ? 's' : ''}</p>
@@ -610,10 +589,6 @@ function PerformersTab({ draft, update }) {
   </div>;
 }
 
-/**
- * Puts the title in a series (or a new one) and sets its number there. Unlike the Details, Performers and
- * Studio tabs, series changes save right away, and the list below reorders the whole series.
- */
 const REEL_CHOICES = [
   { value: 'auto', label: 'Automatic' },
   { value: 'on', label: 'Always a reel' },
@@ -647,6 +622,10 @@ function ReelTab({ item, onChanged }) {
   </div>;
 }
 
+/**
+ * Puts the title in a series (or a new one) and sets its number there. Unlike the Details, Performers and
+ * Studio tabs, series changes save right away, and the list below reorders the whole series.
+ */
 function SeriesTab({ item, onChanged }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -699,7 +678,7 @@ function SeriesTab({ item, onChanged }) {
     <section>
       <p className="rs-eyebrow">Series of this video</p>
       {item.seriesId ? <div className="rs-pm-found"><div className="rs-pm-found-row rs-pm-title-row">
-        <span className="rs-pm-who"><Thumb name={item.seriesName} /><span><Link to={`/series/${item.seriesId}`}><strong>{item.seriesName}</strong></Link><small>Match the whole series with a provider and pair its scenes or episodes on the series page.</small></span></span>
+        <span className="rs-pm-who"><Thumb name={item.seriesName} /><span><a className="rs-pm-link" href={`/admin/metadata/series?edit=${item.seriesId}`} target="_blank" rel="noopener"><strong>{item.seriesName}</strong></a><small>Open the series to match it with a provider, change its artwork or reorder it.</small></span></span>
         <form className="rs-series-number-form" onSubmit={saveNumber}>
           <label>No. <input type="number" min="1" inputMode="numeric" aria-label="Number in the series" value={number} disabled={busy} onChange={e => setNumber(e.target.value)} onBlur={saveNumber} /></label>
         </form>
@@ -715,6 +694,7 @@ function draftFrom(item) {
   return {
     title: item.title || '',
     description: item.description || '',
+    releaseDate: item.releaseDate ? item.releaseDate.slice(0, 10) : '',
     categories: item.categories || [],
     cast: (item.cast || []).map(p => ({ id: p.id, name: p.name, profileImageId: p.profileImageId })),
     studio: { name: item.studioName || '', id: item.studioId || 0, logoImageId: item.studioLogoImageId || null },
@@ -724,6 +704,7 @@ function draftFrom(item) {
 const sameField = {
   title: (a, b) => a === b,
   description: (a, b) => a === b,
+  releaseDate: (a, b) => a === b,
   categories: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
   cast: (a, b) => a.length === b.length && a.every((p, i) => p.id === b[i].id && p.name === b[i].name),
   studio: (a, b) => a.name === b.name,
@@ -734,7 +715,7 @@ function dirtyFields(form) {
 }
 
 /**
- * The title settings modal: metadata provider match, details (title, description, categories), studio,
+ * The title settings modal: metadata provider match, details (title, description, release date, categories), studio,
  * performers, and the audio and subtitle tracks. Edits on the Details, Performers and Studio tabs are staged together and written by the
  * header's Save button; every save writes the database and the title's NFO files.
  * `onChanged` fires after an edit so the page behind can refresh.
@@ -786,6 +767,7 @@ export default function MediaSettings({ mediaItemId, open, onOpenChange, onChang
     const patch = {};
     if (dirty.includes('title')) patch.title = draft.title;
     if (dirty.includes('description')) patch.description = draft.description;
+    if (dirty.includes('releaseDate')) patch.releaseDate = draft.releaseDate;
     if (dirty.includes('categories')) patch.categories = draft.categories;
     if (dirty.includes('cast')) patch.performers = draft.cast;
     if (dirty.includes('studio')) patch.studio = draft.studio.name;
@@ -812,14 +794,14 @@ export default function MediaSettings({ mediaItemId, open, onOpenChange, onChang
   return <Dialog open={open} onOpenChange={requestOpenChange}>
     <DialogContent size="xl" className="rs-pm">
       <DialogHeader className="rs-pm-header">
-        <DialogTitle>{item ? `${item.title} · settings` : 'Title settings'}</DialogTitle>
+        <EditorHeading kind="Video" name={item?.title} facts={[item?.studioName, item?.releaseDate?.slice(0, 4), item?.seriesName && `${item.seriesName}${item.seriesPosition ? ` #${item.seriesPosition}` : ''}`]} libraryPath={item && `/library/${item.id}`} />
         {form && <Button disabled={!canSave} onClick={save}>{saving ? 'Saving…' : 'Save'}</Button>}
       </DialogHeader>
       <DialogBody>
         {!item && <p className="rs-pm-muted">Loading…</p>}
         {item && form && <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="details">Details{(edited('title') || edited('description') || edited('categories'))}</TabsTrigger>
+            <TabsTrigger value="details">Details{(edited('title') || edited('description') || edited('releaseDate') || edited('categories'))}</TabsTrigger>
             <TabsTrigger value="poster">Poster &amp; backdrop</TabsTrigger>
             <TabsTrigger value="performers">Performers{edited('cast')}</TabsTrigger>
             <TabsTrigger value="studio">Studio{edited('studio')}</TabsTrigger>

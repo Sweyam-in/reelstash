@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle,
-  FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogBody, DialogContent, DialogHeader, FormField, Input, Tabs, TabsContent, TabsList, TabsTrigger, useToast,
 } from '@spatika/react';
 import { ArrowDown, ArrowUp, Check, ExternalLink, ImageUp, Search, Trash2, Unlink, X } from 'lucide-react';
 import {
   addSeriesMedia, artworkUrl, assignSeriesPart, deleteSeries, deleteSeriesBackdrop, deleteSeriesImage, seriesBackdropUrl, uploadSeriesBackdrop, uploadSeriesImage, setSeriesProviderImage, getMediaItems, getProviders, getSeriesItem, getSeriesParts,
   linkSeriesProvider, orderSeriesMedia, removeSeriesMedia, searchSeriesProviders, unlinkSeriesProvider, updateSeries,
 } from '../api';
+import { EditorHeading, titleCount } from './EditorHeading';
+import { SaveRow, useCloseGuard, useDetailsDraft } from './editorParts';
 import { SearchCombobox, Thumb } from '../components/SearchCombobox';
 import SeriesCover from '../components/SeriesCover';
 
@@ -368,19 +369,22 @@ function BackdropTab({ series, onChanged }) {
   </div>;
 }
 
-function DetailsTab({ series, onSaved, onDeleted }) {
+const seriesFields = series => ({ name: series.name || '', description: series.description || '' });
+
+function DetailsTab({ series, draft, onSaved, onDeleted }) {
   const { toast } = useToast();
-  const [name, setName] = useState(series.name || '');
-  const [description, setDescription] = useState(series.description || '');
+  const { name, description } = draft.value;
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function save(event) {
     event.preventDefault();
+    if (!draft.dirty || !name.trim()) return;
     setBusy(true);
     try {
       await updateSeries(series.id, { name: name.trim(), description, studioId: series.studioId ?? null });
       toast({ title: 'Series saved', tone: 'success' });
+      draft.reset();
       onSaved();
     } catch (err) {
       toast({ title: 'Could not save series', description: err.message, tone: 'danger' });
@@ -402,10 +406,12 @@ function DetailsTab({ series, onSaved, onDeleted }) {
   }
 
   return <form className="rs-pm-form" onSubmit={save}>
-    <FormField label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></FormField>
-    <FormField label="Description"><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" /></FormField>
-    <div className="rs-pm-actions">
-      <Button type="submit" disabled={busy || !name.trim()}>Save changes</Button>
+    <FormField label="Name" error={name.trim() ? undefined : 'Enter a name.'}><Input value={name} onChange={e => draft.set({ name: e.target.value })} /></FormField>
+    <FormField label="Description" optional description="Shown on the series page in the library."><textarea className="rs-pm-textarea" rows={5} value={description} onChange={e => draft.set({ description: e.target.value })} /></FormField>
+    <SaveRow dirty={draft.dirty} busy={busy} invalid={!name.trim()} onDiscard={draft.reset} />
+    <div className="rs-pm-danger">
+      <p className="rs-eyebrow">Delete series</p>
+      <p className="rs-pm-muted">The series and its provider links are removed. Its videos stay in your library.</p>
       <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Delete series</Button>
     </div>
     <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -442,14 +448,17 @@ export default function SeriesSettings({ seriesId, open, onOpenChange, onChanged
 
   const changed = useCallback(() => load().then(() => onChanged?.()).catch(() => {}), [load, onChanged]);
 
-  return <Dialog open={open} onOpenChange={onOpenChange}>
+  const draft = useDetailsDraft(series, seriesFields);
+  const [requestOpenChange, discardPrompt] = useCloseGuard(draft.dirty, onOpenChange, draft.reset);
+
+  return <Dialog open={open} onOpenChange={requestOpenChange}>
     <DialogContent size="xl" className="rs-pm">
-      <DialogHeader><DialogTitle>{series ? `${series.name} · settings` : 'Series settings'}</DialogTitle></DialogHeader>
+      <DialogHeader><EditorHeading kind={series?.kind === 'show' ? 'Show' : 'Series'} name={series?.name} facts={[series && titleCount(series.mediaCount), series?.studioName]} libraryPath={series && `/series/${series.id}`} /></DialogHeader>
       <DialogBody>
         {!series && <p className="rs-pm-muted">Loading…</p>}
         {series && <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="details">Details{draft.dirty && <span className="rs-pm-dirty" aria-label="Unsaved changes" />}</TabsTrigger>
             <TabsTrigger value="videos">Videos</TabsTrigger>
             <TabsTrigger value="match">Metadata Providers</TabsTrigger>
             <TabsTrigger value="poster">Poster</TabsTrigger>
@@ -460,10 +469,11 @@ export default function SeriesSettings({ seriesId, open, onOpenChange, onChanged
             <TabsContent value="match"><MatchTab series={series} onChanged={changed} /></TabsContent>
             <TabsContent value="poster"><PosterTab series={series} onChanged={changed} /></TabsContent>
             <TabsContent value="backdrop"><BackdropTab series={series} onChanged={changed} /></TabsContent>
-            <TabsContent value="details"><DetailsTab key={`${series.id}-${series.name}`} series={series} onSaved={changed} onDeleted={() => { onOpenChange(false); onDeleted?.(); }} /></TabsContent>
+            <TabsContent value="details"><DetailsTab key={series.id} series={series} draft={draft} onSaved={changed} onDeleted={() => { onOpenChange(false); onDeleted?.(); }} /></TabsContent>
           </div>
         </Tabs>}
       </DialogBody>
     </DialogContent>
+    {discardPrompt}
   </Dialog>;
 }

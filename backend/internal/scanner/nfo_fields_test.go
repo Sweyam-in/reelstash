@@ -43,3 +43,29 @@ func TestEditNFO(t *testing.T) {
 		t.Fatal("kept actor lost its extra fields")
 	}
 }
+
+func TestEditNFOPremiered(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a.nfo")
+	if err := os.WriteFile(path, []byte("<movie>\n  <title>T</title>\n  <year>1999</year>\n</movie>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	date := "2023-09-14"
+	if _, err := EditNFO(path, NFOFields{Premiered: &date}); err != nil {
+		t.Fatal(err)
+	}
+	movie, err := parseNFO(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if movie.Premiered != date || movie.Year != "2023" {
+		t.Fatalf("premiered=%q year=%v", movie.Premiered, movie.Year)
+	}
+	clear := ""
+	if _, err := EditNFO(path, NFOFields{Premiered: &clear}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "premiered") || strings.Contains(string(data), "<year>") || !strings.Contains(string(data), "<title>T</title>") {
+		t.Fatalf("clearing left:\n%s", data)
+	}
+}

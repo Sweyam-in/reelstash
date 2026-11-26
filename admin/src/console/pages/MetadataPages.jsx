@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input } from '@spatika/react';
-import { Copy, Eraser, Pencil, Plus, RotateCcw, Settings2, Sparkles, Tags, Trash2, X } from 'lucide-react';
+import { Copy, Eraser, ExternalLink, Pencil, Plus, RotateCcw, Sparkles, Tags, Trash2, X } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@spatika/react';
 import {
   cleanupCategories, cleanupPerformers, createCategory, createPerformer, createSeries, createStudio, createTag, deleteCategory, deletePerformer, deleteSeries, deleteStudio, deleteTag,
@@ -122,10 +122,11 @@ function useDeleteEntity(entityLabel, remove, onDone) {
 }
 
 function EntityManager({
-  entityLabel, entityPlural, list, create, update, remove, showMatch, linkPrefix = '/performers', avatar = null, revision = 0, onChanged, performers = false,
+  entityLabel, entityPlural, list, create, update, remove, showMatch, avatar = null, revision = 0, onChanged, performers = false,
   libraryId = null, libraryScoped = true, addRef, tools = [], notice = null, onTotal, addInToolbar = false, storageKey, series = false,
 }) {
   const studios = avatar === 'studio';
+  const libraryPath = performers ? '/performers' : studios ? '/studios' : series ? '/series' : null;
   const notify = useNotify();
   const [filters, setFilters] = useUrlState({ q: '', status: '', page: '0', size: String(PAGE_DEFAULT) });
   const [search, setSearch] = useState(filters.q);
@@ -182,7 +183,8 @@ function EntityManager({
   const loaded = items !== null;
   const nothingAtAll = loaded && !filtered && items.length === 0;
 
-  function openCreate() { if (performers) { setCreatingPerformer(true); return; } setName(''); setFormError(null); setEditing({}); }
+  const canCreate = !!create;
+  function openCreate() { if (!canCreate) return; if (performers) { setCreatingPerformer(true); return; } setName(''); setFormError(null); setEditing({}); }
   useEffect(() => { if (addRef) addRef.current = openCreate; });
   function openEdit(item) { setName(item.name); setFormError(null); setEditing(item); }
 
@@ -202,23 +204,23 @@ function EntityManager({
     <Panel bodyless>
       {showMatch && !nothingAtAll && <SegmentedTabs label="Filter by match status" value={status} onChange={v => setFilters({ status: v })} options={statusOptions} />}
       <TableToolbar search={search} onSearch={setSearch} label={`Search ${noun}`} placeholder={performers ? 'Search name or alias' : `Search ${noun}`}
-        end={<>{addInToolbar && <Button size="sm" onClick={openCreate} leadingIcon={<Plus size={14} />}>Add {entityLabel.toLowerCase()}</Button>}{tools.length > 0 && <MoreMenu label="Tools" items={tools} />}</>}>
+        end={<>{addInToolbar && canCreate && <Button size="sm" onClick={openCreate} leadingIcon={<Plus size={14} />}>Add {entityLabel.toLowerCase()}</Button>}{tools.length > 0 && <MoreMenu label="Tools" items={tools} />}</>}>
         {filtered && <button type="button" className="console-link" onClick={() => { setSearch(''); setFilters({ q: '', status: '' }); }}>Reset</button>}
       </TableToolbar>
       {error && !loaded ? <ErrorState title={`Couldn't load ${noun}`} error={error} onRetry={load} />
         : !loaded ? <SkeletonRows rows={6} label={`Loading ${noun}`} />
-          : nothingAtAll ? <EmptyState icon={Tags} title={libraryId && libraryScoped ? `No ${noun} in this library` : `No ${noun} yet`} message={libraryId && libraryScoped ? 'Switch the library scope to All libraries to see everything.' : 'They are created automatically as the scanner discovers media, or add one by hand.'} action={<Button size="sm" onClick={openCreate}>Add {entityLabel.toLowerCase()}</Button>} />
+          : nothingAtAll ? <EmptyState icon={Tags} title={libraryId && libraryScoped ? `No ${noun} in this library` : `No ${noun} yet`} message={libraryId && libraryScoped ? 'Switch the library scope to All libraries to see everything.' : canCreate ? 'They are created automatically as the scanner discovers media, or add one by hand.' : 'They are created automatically as the scanner discovers media and as titles are matched with providers.'} action={canCreate ? <Button size="sm" onClick={openCreate}>Add {entityLabel.toLowerCase()}</Button> : undefined} />
             : shown.length === 0 ? <EmptyState compact icon={Tags} title={`No ${noun} match`} message={`${query ? `Nothing matches “${query}”` : ''}${status ? ` with status “${MATCH_LABEL[status]}”` : ''}.`} action={<Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilters({ q: '', status: '' }); }}>Clear filters</Button>} />
               : <div className="console-table-responsive"><Table className="console-stack-table" data-actions>
                 <TableHeader><TableRow><TableHead>Name</TableHead>{showMatch && <TableHead>Match</TableHead>}<TableHead className="console-num-cell">Titles</TableHead><TableHead><span className="console-sr-only">Actions</span></TableHead></TableRow></TableHeader>
                 <TableBody>{shown.map(item => <TableRow key={item.id}>
-                  <TableCell><span className="console-title-cell">{avatar && <RowAvatar kind={avatar} item={item} />}{showMatch ? <a className="console-link console-title-cell__name" href={mediaHref(`${linkPrefix}/${item.id}`)} title="Open in the library">{item.name}</a> : <span className="console-title-cell__name">{item.name}</span>}</span></TableCell>
+                  <TableCell><span className="console-title-cell">{avatar && <RowAvatar kind={avatar} item={item} />}{hasSettings ? <button type="button" className="console-link console-title-cell__name" title={`Edit ${item.name}`} onClick={() => setSettingsId(item.id)}>{item.name}</button> : <span className="console-title-cell__name">{item.name}</span>}</span></TableCell>
                   {showMatch && <TableCell><button type="button" className="console-plain-button" aria-label={`${item.matchStatus === 'matched' ? 'Review match' : 'Match'} for ${item.name}`} onClick={() => setSettingsId(item.id)}><Status tone={MATCH_TONE[MATCH_LABEL[item.matchStatus] ? item.matchStatus : 'unmatched']}>{MATCH_LABEL[MATCH_LABEL[item.matchStatus] ? item.matchStatus : 'unmatched']}</Status></button></TableCell>}
                   <TableCell className="console-num-cell">{formatNumber(item.mediaCount ?? 0)}</TableCell>
                   <TableCell><MoreMenu iconOnly label={`Actions for ${item.name}`} items={[
-                    (performers || studios) && { label: 'Match, photo and merge…', icon: Settings2, onSelect: () => setSettingsId(item.id) },
-                    series && { label: 'Artwork, titles and order…', icon: Settings2, onSelect: () => setSettingsId(item.id) },
-                    { label: 'Rename…', icon: Pencil, onSelect: () => openEdit(item) }, 'separator', { label: 'Delete…', icon: Trash2, danger: true, onSelect: () => askDelete(item) },
+                    hasSettings ? { label: 'Edit…', icon: Pencil, onSelect: () => setSettingsId(item.id) } : { label: 'Rename…', icon: Pencil, onSelect: () => openEdit(item) },
+                    libraryPath && { label: 'Open in library', icon: ExternalLink, onSelect: () => window.open(mediaHref(`${libraryPath}/${item.id}`), '_blank', 'noopener') },
+                    'separator', { label: 'Delete…', icon: Trash2, danger: true, onSelect: () => askDelete(item) },
                   ]} /></TableCell>
                 </TableRow>)}</TableBody>
               </Table></div>}
@@ -329,7 +331,7 @@ export function StudiosPage() {
       actions={<>{libraries.length > 1 && <LibraryScopeSelect />}<Button variant="outline" onClick={() => addRef.current?.()} leadingIcon={<Plus size={14} />}>Add {terms.studio.toLowerCase()}</Button>
         <Button onClick={() => match.run(false)} disabled={match.busy || match.running} leadingIcon={<Sparkles size={14} />}>{match.running ? 'Matching…' : 'Match with providers'}</Button></>} />
     <MatchRunBar job={match.job} running={match.running} noun={studios} />
-    <EntityManager showMatch avatar="studio" linkPrefix="/studios" addRef={addRef} revision={revision} onChanged={bump} libraryId={libraryId}
+    <EntityManager showMatch avatar="studio" addRef={addRef} revision={revision} onChanged={bump} libraryId={libraryId}
       entityLabel={terms.studio} entityPlural={terms.studios} list={getStudios} create={createStudio} update={updateStudio} remove={deleteStudio} />
   </PageStack>;
 }

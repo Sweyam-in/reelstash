@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Bookmark, BookmarkCheck, Check, Ellipsis, Heart, Keyboard, ListPlus, ListVideo, Play, Plus, Settings2, Star } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, BookmarkCheck, Check, Ellipsis, Heart, Keyboard, ListPlus, ListVideo, Play, Plus, Star } from 'lucide-react';
 import { monogram } from '../../components/Monogram';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, useToast } from '../../ui';
 import { addWatchLater, artworkUrl, createMarker, getMarkers, removeWatchLater, getNextInSeries, subtitleUrl, startWatchSession, updateWatchSession, getMediaItem, getRelatedMedia, getMediaItems, performerImageUrl, studioImageUrl, updateMediaItem, updatePlayback } from '../../api';
@@ -16,7 +16,6 @@ import AddToPlaylist from '../../components/AddToPlaylist';
 import PlayerShortcuts from '../../components/PlayerShortcuts';
 import { isFullscreen as isPlayerFullscreen, onFullscreenChange, toggleFullscreen } from '../../fullscreen';
 import { enqueue, nextInQueue, previousInQueue, setAutoplay, startQueue, syncPlaying, useQueue } from '../../queue';
-import { editInAdmin } from '../../appLinks';
 import { formatClock } from '../../playerUtils';
 import { displayTitle, toneClass, formatRuntime, Artwork, ratingFromStars, Shelf, Status, countLabel } from './shared';
 
@@ -199,7 +198,7 @@ export function DetailFacts({ item }) {
   </aside>;
 }
 
-export function MediaDetail({ isAdmin = false }) {
+export function MediaDetail() {
   const { toast } = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
@@ -534,7 +533,7 @@ export function MediaDetail({ isAdmin = false }) {
             <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.favorite ? 'is-favorite' : ''}`} aria-pressed={!!item.favorite} onClick={toggleFavorite}><Heart size={18} fill={item.favorite ? 'currentColor' : 'none'} /> {item.favorite ? 'Favorited' : 'Favorite'}</button>
             <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.watchLater ? 'is-favorite' : ''}`} aria-pressed={!!item.watchLater} onClick={toggleWatchLater}>{item.watchLater ? <BookmarkCheck size={18} /> : <Bookmark size={18} />} {item.watchLater ? 'In Watch later' : 'Watch later'}</button>
             <button type="button" className="rs-button rs-button-outline rs-button-lg" onClick={() => setPlaylistOpen(true)}><ListPlus size={18} /> Add to playlist</button>
-            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rs-button rs-button-outline rs-button-lg rs-button-icon rs-detail-more" aria-label="More"><Ellipsis size={18} /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={addToQueue}><ListPlus size={16} /> Add to queue</DropdownMenuItem><DropdownMenuItem onSelect={() => setPlaylistOpen(true)}><ListVideo size={16} /> Add to playlist</DropdownMenuItem><DropdownMenuItem onSelect={markWatched}><Check size={16} /> Mark as watched</DropdownMenuItem><DropdownMenuItem onSelect={() => setShortcutsOpen(true)}><Keyboard size={16} /> Keyboard shortcuts</DropdownMenuItem>{isAdmin && <DropdownMenuItem onSelect={() => editInAdmin('media', item.id)}><Settings2 size={16} /> Edit in Admin</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>
+            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rs-button rs-button-outline rs-button-lg rs-button-icon rs-detail-more" aria-label="More"><Ellipsis size={18} /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={addToQueue}><ListPlus size={16} /> Add to queue</DropdownMenuItem><DropdownMenuItem onSelect={() => setPlaylistOpen(true)}><ListVideo size={16} /> Add to playlist</DropdownMenuItem><DropdownMenuItem onSelect={markWatched}><Check size={16} /> Mark as watched</DropdownMenuItem><DropdownMenuItem onSelect={() => setShortcutsOpen(true)}><Keyboard size={16} /> Keyboard shortcuts</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             <AddToPlaylist mediaItemId={item.id} open={playlistOpen} onOpenChange={setPlaylistOpen} />
             <PlayerShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           </div>

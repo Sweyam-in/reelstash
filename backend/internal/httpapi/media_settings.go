@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"reelstash/backend/internal/namer"
 	"reelstash/backend/internal/provider"
@@ -188,7 +190,8 @@ type performerRef struct {
 type updateMediaMetadataRequest struct {
 	Title       *string         `json:"title"`
 	Description *string         `json:"description"`
-	Studio      *string         `json:"studio"` // "" clears the studio
+	Studio      *string         `json:"studio"`      // "" clears the studio
+	ReleaseDate *string         `json:"releaseDate"` // YYYY-MM-DD; "" clears it
 	Categories  *[]string       `json:"categories"`
 	Performers  *[]performerRef `json:"performers"`
 	// KeepEdits true locks the fields in this edit so a later match keeps them; false clears every lock.
@@ -215,6 +218,16 @@ func (a *API) updateMediaMetadata(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req.Title = &trimmed
+	}
+	if req.ReleaseDate != nil {
+		date := strings.TrimSpace(*req.ReleaseDate)
+		if date != "" {
+			if _, err := time.Parse("2006-01-02", date); err != nil {
+				writeError(w, http.StatusBadRequest, "release date must be YYYY-MM-DD")
+				return
+			}
+		}
+		req.ReleaseDate = &date
 	}
 
 	ctx := r.Context()
@@ -246,6 +259,17 @@ func (a *API) updateMediaMetadata(w http.ResponseWriter, r *http.Request) {
 	`, id, req.Title, req.Description); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update title")
 		return
+	}
+	if req.ReleaseDate != nil {
+		var date, year any
+		if *req.ReleaseDate != "" {
+			y, _ := strconv.Atoi((*req.ReleaseDate)[:4])
+			date, year = *req.ReleaseDate, y
+		}
+		if _, err := tx.Exec(ctx, `UPDATE media_item SET release_date = $2::date, production_year = $3 WHERE id = $1`, id, date, year); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save the release date")
+			return
+		}
 	}
 
 	var studioName *string
@@ -348,7 +372,7 @@ func (a *API) updateMediaMetadata(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fields := scanner.NFOFields{Title: req.Title, Plot: req.Description, Studio: studioName}
+	fields := scanner.NFOFields{Title: req.Title, Plot: req.Description, Studio: studioName, Premiered: req.ReleaseDate}
 	if req.Categories != nil {
 		fields.Genres = &categoryNames
 	}

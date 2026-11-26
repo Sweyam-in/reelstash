@@ -126,7 +126,7 @@ function MediaRoutes({ session }) {
   return <Suspense fallback={<PageLoading />}><Routes>
     <Route path="/" element={<Home session={session} />} />
     <Route path="/library" element={<Catalog />} />
-    <Route path="/library/:id" element={<MediaDetail isAdmin={session.isAdmin} />} />
+    <Route path="/library/:id" element={<MediaDetail />} />
     <Route path="/search" element={<Catalog type="search" />} />
     {['performers', 'studios', 'categories'].map(type => <React.Fragment key={type}><Route path={`/${type}`} element={<Browse type={type} />} /><Route path={`/${type}/:name`} element={<BrowseDetail type={type} />} /></React.Fragment>)}
     <Route path="/series" element={<Browse type="series" variant="collections" />} />

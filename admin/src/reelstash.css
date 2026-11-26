@@ -1825,3 +1825,15 @@ html:not([data-scrolled]) .rs-app-media .spk-app-main > .spk-topbar { background
 }
 /* Admin pages are grids; let their children shrink so wide rows scroll inside instead of widening the page. */
 .rs-app-admin .reel-view > * { min-width: 0; }
+
+/* Editor headings: the record's name, what it is, a few facts and a link to its library page. */
+.rs-editor-heading { display: grid; gap: .3rem; min-width: 0; }
+.rs-editor-heading [data-slot='dialog-title'] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-editor-heading [data-slot='dialog-description'] { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; margin: 0; color: var(--spk-text-secondary); font-size: .85rem; }
+.rs-editor-heading [data-slot='dialog-description'] > span + span::before { content: '·'; margin-right: .55rem; color: var(--spk-text-tertiary); }
+.rs-editor-heading [data-slot='dialog-description'] a { display: inline-flex; align-items: center; gap: .25rem; color: var(--spk-accent-text); font-weight: 600; text-decoration: none; }
+.rs-editor-heading [data-slot='dialog-description'] a:hover { text-decoration: underline; }
+.rs-pm-save { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.rs-pm-dirty-note { color: var(--spk-text-secondary); font-size: .85rem; }
+.rs-pm-dirty-note::before { content: ''; display: inline-block; width: .45rem; height: .45rem; margin-right: .4rem; border-radius: 50%; background: var(--spk-accent); vertical-align: middle; }
+.rs-pm-date { max-width: 12rem; }

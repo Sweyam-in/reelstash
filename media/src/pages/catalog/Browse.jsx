@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Rows3, ArrowUpRight, Heart, ListVideo, Plus, Search } from 'lucide-react';
+import { LayoutGrid, Rows3, ArrowUpRight, Heart, ListVideo, Search } from 'lucide-react';
 import { monogram } from '../../components/Monogram';
 import { Tabs, TabsList, TabsTrigger } from '../../ui';
 import { getPerformers, performerImageUrl, getWatchActivity } from '../../api';
@@ -11,7 +11,6 @@ import { FilterSelect } from '../../components/FilterControls';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 import { useInfiniteList, VirtualWindow } from '../../virtual';
-import { adminHref } from '../../appLinks';
 import { toneClass, Status, dimensionTerms, dimensions, DirectoryMark, countLabel, PerformerCard } from './shared';
 
 export function StudioCard({ item, index }) {
@@ -90,7 +89,7 @@ export function MostWatchedStrip() {
 }
 
 export function Browse({ type, variant }) {
-  const { terms, isAdmin, mode } = useLibrary();
+  const { terms, mode } = useLibrary();
   const extra = mode === 'entertainment' ? BROWSE_VARIANTS[variant] : null;
   const config = { ...dimensions[type], ...dimensionTerms(type, terms), ...(extra ? { title: extra.title(terms), singular: extra.singular(terms) } : {}) };
   const [query, setQuery] = useState('');
@@ -124,7 +123,7 @@ export function Browse({ type, variant }) {
     categories: 'Topics used in your collection.',
   };
   return <div className={`rs-page rs-catalog-${type}`}>
-    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total.toLocaleString()}</span></h1>{type !== 'performers' && <p>{extra?.blurb || blurbs[type]}</p>}</div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}{isAdmin && type === 'performers' && variant !== 'directors' && <a className="rs-button rs-button-primary rs-toolbar-new" href={adminHref('/admin/metadata/performers')} target="_blank" rel="noopener"><Plus size={16} /> New {terms.person.toLowerCase()}</a>}{isAdmin && type === 'series' && variant !== 'shows' && <a className="rs-button rs-button-outline rs-toolbar-new" href={adminHref('/admin/metadata/series')} target="_blank" rel="noopener"><Plus size={16} /> New {terms.series.toLowerCase()}</a>}</div></div></header>
+    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total.toLocaleString()}</span></h1>{type !== 'performers' && <p>{extra?.blurb || blurbs[type]}</p>}</div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}</div></div></header>
     {type === 'performers' && variant !== 'directors' && !query && peopleTab === 'all' && !letter && <MostWatchedStrip />}
     {type === 'performers' && <div className="rs-performer-subbar">
       <Tabs value={peopleTab} onValueChange={setPeopleTab}><TabsList>
@@ -135,7 +134,7 @@ export function Browse({ type, variant }) {
       </TabsList></Tabs>
       <nav className="rs-az" aria-label="Filter by first letter">{['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(l => <button key={l} type="button" className={letter === l ? 'is-active' : ''} aria-pressed={letter === l} onClick={() => setLetter(current => current === l ? '' : l)}>{l}</button>)}</nav>
     </div>}
-    <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !query && !favoriteFilter && !letter} retry={refresh} title={`No ${config.title.toLowerCase()} yet`} message={type === 'series' ? 'Group the scenes of a movie or the episodes of a show: choose New series, or open a video’s Settings and use its Series tab.' : type === 'categories' ? 'No titles have categories yet.' : 'They appear here as your library is scanned.'} href={type === 'series' || type === 'categories' ? '/library' : undefined} action="Browse titles" />
+    <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !query && !favoriteFilter && !letter} retry={refresh} title={`No ${config.title.toLowerCase()} yet`} message={type === 'series' ? 'Series appear here once titles are grouped into them.' : type === 'categories' ? 'No titles have categories yet.' : 'They appear here as your library is scanned.'} href={type === 'series' || type === 'categories' ? '/library' : undefined} action="Browse titles" />
     {!loading && !error && (!!query || favoriteFilter || !!letter) && !items.length && <Status empty title={favoriteFilter && !query ? 'No favorite performers yet' : 'No matches'} message={favoriteFilter && !query ? 'Open a performer and tap Favorite.' : 'Try a different name.'} />}
     {!!items.length && type === 'performers' && <VirtualWindow className="rs-portrait-grid" items={items} minColumn={168} gapX={16} gapY={24} aspect={3 / 4} extra={56} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <PerformerCard item={item} index={index} below />} />}
     {!!items.length && type === 'studios' && <VirtualWindow className="rs-studio-cards" items={items} minColumn={220} gapX={16} gapY={16} rowHeight={138} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <StudioCard item={item} index={index} />} />}

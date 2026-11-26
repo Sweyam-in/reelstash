@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Check, ListVideo, Play, RotateCcw, Settings2, Shuffle, Star } from 'lucide-react';
+import { Check, ListVideo, Play, RotateCcw, Shuffle, Star } from 'lucide-react';
 import { useToast } from '../ui';
 import { artworkUrl, getMediaItems, getSeriesItem, performerImageUrl, seriesBackdropUrl, studioImageUrl } from '../api';
 import { monogram } from '../components/Monogram';
 import SeriesCover from '../components/SeriesCover';
-import { editInAdmin } from '../appLinks';
-import { useLibrary } from '../libraryContext';
 import { playAll } from '../queueActions';
 
 // A series page: the key art of its titles as a backdrop, a hero with the way in (play / resume / shuffle),
@@ -63,7 +61,6 @@ export default function SeriesDetail() {
   const { name: id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAdmin } = useLibrary();
   const [series, setSeries] = useState(null);
   const [error, setError] = useState('');
   const [items, setItems] = useState(null);
@@ -125,7 +122,6 @@ export default function SeriesDetail() {
           <div className="rs-detail-actions">
             {primary && <button type="button" className="rs-button rs-button-primary" onClick={primary.run}><primary.icon size={17} fill={primary.icon === Play ? 'currentColor' : 'none'} /> {primary.label}{stats.next && !allWatched ? <small className="rs-series-primary-note">{stats.next.seriesPosition != null ? `No. ${stats.next.seriesPosition}` : ''}</small> : null}</button>}
             {total > 1 && <button type="button" className="rs-button rs-button-outline" onClick={() => play(items, { shuffle: true })}><Shuffle size={16} /> Shuffle</button>}
-            {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => editInAdmin('series', series.id)}><Settings2 size={17} /> Edit</button>}
           </div>
         </div>
       </div>
@@ -141,7 +137,7 @@ export default function SeriesDetail() {
     <div className="rs-sd-layout">
     <div className="rs-sd-main">
     {items === null && <p className="rs-virtual-status">Loading titles…</p>}
-    {items?.length === 0 && <p className="rs-virtual-status">{isAdmin ? 'No videos yet. Use Edit to add videos, or match the series with a provider and pair its scenes.' : 'No videos here yet.'}</p>}
+    {items?.length === 0 && <p className="rs-virtual-status">No videos here yet.</p>}
     {!!shown.length && <ol className="rs-episode-list rs-series-list">{shown.map((item, index) => <PartRow key={item.id} item={item} index={index} from={`/series/${id}`} />)}</ol>}
     </div>
     <aside className="rs-sd-aside" aria-label="About this series">
