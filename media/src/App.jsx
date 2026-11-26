@@ -1,26 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import SurpriseButton from './components/SurpriseButton';
 import { Bookmark, Clapperboard, Clock3, Film, Heart, House, Library, LibraryBig, ListVideo, Smartphone, Tv, Users, Building2, Layers3 } from 'lucide-react';
 import { Button, ThemeScope, Toaster } from './ui';
 import AppFrame from './frame/AppFrame';
-import You from './pages/You';
 import logo from './assets/logo.svg';
-import { Home, Catalog, Browse, BrowseDetail, MediaDetail, backLabel } from './pages/Catalog';
-import { Playlists, PlaylistDetail } from './pages/Playlists';
-import Activity from './pages/Activity';
-import Reels from './pages/Reels';
+import { backLabel } from './pages/catalog/shared';
 import { AppLockProvider } from './components/AppLock';
 import { NotificationsProvider } from './components/Notifications';
 import { AuthGate, HeaderScrollState, MEDIA_DARK, ScrollReset, useRecentMedia } from './shell';
 import { adminHref } from './appLinks';
 import { LibraryProvider, useLibrary } from './libraryContext';
 import MediaSettingsPage, { MEDIA_THEME_EVENT, resolveMediaTheme } from './pages/UserSettings';
-import ShowDetail from './pages/ShowDetail';
-import { LinkDevicePage } from './components/Devices';
-import SeriesDetail from './pages/SeriesDetail';
 import { useCardStyle } from './cardStyle';
 import { useMediaColorTheme } from './useColorTheme';
+
+// Each page loads on first visit, so the first paint only needs the shell and the page in view.
+const named = (load, name) => lazy(() => load().then(module => ({ default: module[name] })));
+const Home = named(() => import('./pages/catalog/Home'), 'Home');
+const Catalog = named(() => import('./pages/catalog/CatalogList'), 'Catalog');
+const Browse = named(() => import('./pages/catalog/Browse'), 'Browse');
+const BrowseDetail = named(() => import('./pages/catalog/BrowseDetail'), 'BrowseDetail');
+const MediaDetail = named(() => import('./pages/catalog/MediaDetail'), 'MediaDetail');
+const Playlists = named(() => import('./pages/Playlists'), 'Playlists');
+const PlaylistDetail = named(() => import('./pages/Playlists'), 'PlaylistDetail');
+const LinkDevicePage = named(() => import('./components/Devices'), 'LinkDevicePage');
+const Activity = lazy(() => import('./pages/Activity'));
+const Reels = lazy(() => import('./pages/Reels'));
+const You = lazy(() => import('./pages/You'));
+const ShowDetail = lazy(() => import('./pages/ShowDetail'));
+const SeriesDetail = lazy(() => import('./pages/SeriesDetail'));
+
+function PageLoading() {
+  return <div className="rs-route-loading" role="status" aria-live="polite"><span className="rs-route-loading-bar" /><span className="rs-sr-only">Loading…</span></div>;
+}
 
 // The ReelStash media library. Admin and Files are a separate app (AdminApp.jsx, admin.html)
 // on their own origin; links into them are full page loads via adminHref.
@@ -110,7 +123,7 @@ function AdminAppRedirect({ to }) {
 }
 
 function MediaRoutes({ session }) {
-  return <Routes>
+  return <Suspense fallback={<PageLoading />}><Routes>
     <Route path="/" element={<Home session={session} />} />
     <Route path="/library" element={<Catalog />} />
     <Route path="/library/:id" element={<MediaDetail isAdmin={session.isAdmin} />} />
@@ -137,7 +150,7 @@ function MediaRoutes({ session }) {
     <Route path="/files/*" element={<AdminAppRedirect />} />
     <Route path="/downloads/*" element={<AdminAppRedirect />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>;
+  </Routes></Suspense>;
 }
 
 function LibraryGate({ session, onSignOut }) {

@@ -153,7 +153,7 @@ export default function SeriesDetail() {
       <section>
         <h3>Details</h3>
         <dl className="rs-sd-facts">
-          {series.studioName && <div><dt>Studio</dt><dd>{series.studioId ? <Link to={`/studios/${series.studioId}`} className="rs-sd-studio">{stats.logo && <img src={studioImageUrl(series.studioId, stats.logo.studioLogoImageId)} alt="" />}{series.studioName}</Link> : series.studioName}</dd></div>}
+          {series.studioName && <div><dt>Studio</dt><dd>{series.studioId ? <Link to={`/studios/${series.studioId}`} className="rs-sd-studio">{stats.logo && <img loading="lazy" src={studioImageUrl(series.studioId, stats.logo.studioLogoImageId)} alt="" />}{series.studioName}</Link> : series.studioName}</dd></div>}
           {series.releaseDate && <div><dt>Released</dt><dd>{series.releaseDate.slice(0, 4)}</dd></div>}
           <div><dt>Titles</dt><dd>{total}</dd></div>
           {!!stats.runtime && <div><dt>Runtime</dt><dd>{duration(stats.runtime)}</dd></div>}

@@ -28,7 +28,7 @@ function PlaylistCover({ covers = [], name }) {
 function CoverImage({ cover, onBroken }) {
   const [kind, setKind] = useState('poster');
   const src = artworkUrl(cover.id, kind, cover.posterImageId);
-  return <img key={src} src={src} alt="" decoding="async" onError={() => { if (kind === 'poster') setKind('thumbnail'); else onBroken(); }} />;
+  return <img key={src} src={src} alt="" decoding="async" loading="lazy" onError={() => { if (kind === 'poster') setKind('thumbnail'); else onBroken(); }} />;
 }
 
 export function Playlists() {

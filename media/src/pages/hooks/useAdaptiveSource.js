@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
+// hls.js is large and only needed for transcoded playback in browsers without native
+// HLS, so it loads on demand.
+const loadHls = () => import('hls.js').then(module => module.default);
+const hasMediaSource = () => typeof window !== 'undefined' && Boolean(window.MediaSource || window.ManagedMediaSource);
 import { getPlaybackInfo } from '../../api';
 import { canRemuxAudio } from '../../trackPrefs';
 
@@ -101,6 +104,7 @@ export function useAdaptiveSource(videoRef, mediaItemId, enabled, onFatal, audio
     const quality = qualityRef.current;
     const start = resumeAt.current;
     let cleanup = () => {};
+    let detached = false;
 
     // Reloads the current source a little past `from`, resuming playback.
     const reloadAt = position => {
@@ -151,24 +155,33 @@ export function useAdaptiveSource(videoRef, mediaItemId, enabled, onFatal, audio
 
     if (sourceMode === 'direct') {
       video.src = streamUrl(mediaItemId, audioIndex);
-    } else if (Hls.isSupported()) {
-      const hls = new Hls({ startPosition: start ?? -1, maxBufferLength: 40, backBufferLength: 60, enableWorker: true });
-      hlsRef.current = hls;
-      let recoveries = 0;
-      const onPlaying = () => { recoveries = 0; };
-      video.addEventListener('playing', onPlaying);
-      const previousCleanup = cleanup;
-      cleanup = () => { previousCleanup(); video.removeEventListener('playing', onPlaying); };
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (!data.fatal) return;
-        resumePlayback.current ||= !video.paused && !video.ended;
-        if (++recoveries > 3) { fatalRef.current?.(); return; }
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-        else fatalRef.current?.();
-      });
-      hls.loadSource(hlsUrl(mediaItemId, quality, audioIndex, burn));
-      hls.attachMedia(video);
+    } else if (hasMediaSource()) {
+      const nativeHls = video.canPlayType('application/vnd.apple.mpegurl');
+      loadHls().then(Hls => {
+        if (detached) return;
+        if (!Hls.isSupported()) {
+          if (nativeHls) video.src = hlsUrl(mediaItemId, quality, audioIndex, burn);
+          else fatalRef.current?.();
+          return;
+        }
+        const hls = new Hls({ startPosition: start ?? -1, maxBufferLength: 40, backBufferLength: 60, enableWorker: true });
+        hlsRef.current = hls;
+        let recoveries = 0;
+        const onPlaying = () => { recoveries = 0; };
+        video.addEventListener('playing', onPlaying);
+        const previousCleanup = cleanup;
+        cleanup = () => { previousCleanup(); video.removeEventListener('playing', onPlaying); };
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (!data.fatal) return;
+          resumePlayback.current ||= !video.paused && !video.ended;
+          if (++recoveries > 3) { fatalRef.current?.(); return; }
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+          else fatalRef.current?.();
+        });
+        hls.loadSource(hlsUrl(mediaItemId, quality, audioIndex, burn));
+        hls.attachMedia(video);
+      }).catch(() => { if (!detached) fatalRef.current?.(); });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = hlsUrl(mediaItemId, quality, audioIndex, burn); // Safari plays HLS natively
     } else {
@@ -203,6 +216,7 @@ export function useAdaptiveSource(videoRef, mediaItemId, enabled, onFatal, audio
     cleanup = () => { previousCleanup(); video.removeEventListener('timeupdate', onProgress); clearInterval(watchdog); };
 
     return () => {
+      detached = true;
       cleanup();
       if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
       video.removeAttribute('src');

@@ -27,7 +27,7 @@ export default function UpNext({ item, seconds = 8, onPlay, onCancel }) {
 
   const code = episodeCode(item);
   return <div className="rs-up-next" role="dialog" aria-label="Up next">
-    <img src={artworkUrl(item.id, 'thumbnail', item.posterImageId)} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} />
+    <img src={artworkUrl(item.id, 'thumbnail', item.posterImageId)} alt="" loading="lazy" onError={event => { event.currentTarget.style.display = 'none'; }} />
     <div>
       <p className="rs-eyebrow">Up next in {Math.max(0, left)}s</p>
       <strong>{item.title}</strong>

@@ -120,3 +120,20 @@
 /* Photo-less people: a gradient from the name's hue, as in the designs. */
 .rs-mono { --mg-h: 244; background: radial-gradient(100% 70% at 50% 25%, hsl(var(--mg-h) 55% 60% / .45), transparent 65%), linear-gradient(170deg, hsl(var(--mg-h) 35% 28%), hsl(calc(var(--mg-h) + 40) 30% 10%)); color: rgba(255, 255, 255, .85); }
 .rs-portrait-fallback.rs-mono { font-size: clamp(30px, 3.4vw, 40px); }
+
+/* Shown while a page's code loads (routes load on first visit). A thin bar at the
+   top of the content, delayed so fast loads never flash it. */
+.rs-route-loading { position: relative; height: 2px; margin: 0 0 -2px; overflow: hidden; }
+.rs-route-loading-bar {
+  position: absolute; inset: 0 auto 0 0; width: 35%;
+  background: var(--ui-accent); opacity: 0;
+  animation: rs-route-loading 1.1s ease-in-out 250ms infinite;
+}
+@keyframes rs-route-loading {
+  0% { transform: translateX(-100%); opacity: 1; }
+  100% { transform: translateX(300%); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rs-route-loading-bar { animation: none; opacity: .6; width: 100%; }
+}
+.rs-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

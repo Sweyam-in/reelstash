@@ -339,3 +339,17 @@ a.rs-studio-credit:hover { background: var(--ui-surface-hover); }
 @media (max-width: 640px) { .rs-cast-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; } }
 .rs-cast-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
 .rs-cast-grid .rs-cast-fallback { align-content: center; justify-content: center; background: radial-gradient(100% 70% at 50% 25%, hsl(var(--mg-h) 55% 60% / .45), transparent 65%), linear-gradient(170deg, hsl(var(--mg-h) 35% 28%), hsl(calc(var(--mg-h) + 40) 30% 10%)); color: rgba(255, 255, 255, .85); }
+
+/* Player keyboard shortcuts dialog */
+.rs-shortcuts { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.rs-shortcuts h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-text-tertiary); }
+.rs-shortcuts dl { margin: 0; display: grid; gap: 6px; }
+.rs-shortcuts dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rs-shortcuts dt { display: flex; align-items: center; gap: 4px; flex-shrink: 0; order: 2; }
+.rs-shortcuts dd { margin: 0; color: var(--ui-text-secondary); font-size: 14px; }
+.rs-shortcuts kbd {
+  min-width: 22px; padding: 2px 6px; border: 1px solid var(--ui-border-strong); border-bottom-width: 2px;
+  border-radius: 5px; background: var(--ui-surface); color: var(--ui-text-primary);
+  font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center;
+}
+.rs-shortcuts-or { font-size: 11px; color: var(--ui-text-tertiary); }

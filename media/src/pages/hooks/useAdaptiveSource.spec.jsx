@@ -149,7 +149,8 @@ describe('audio track selection', () => {
     const hook = render(video, { index: 2, codec: 'ac3' });
     await waitFor(() => expect(hook.result.current.mode).toBe('hls'));
     expect(hook.result.current.audioForcesTranscode).toBe(true);
-    expect(video.src).toContain('/api/media/7/hls/index.m3u8?audio=2');
+    // hls.js loads on demand, so the transcode source is attached a moment later.
+    await waitFor(() => expect(video.src).toContain('/api/media/7/hls/index.m3u8?audio=2'));
   });
 
   it('never attaches the wrong source while the track changes, and goes back to direct play afterwards', async () => {
@@ -178,6 +179,6 @@ describe('audio track selection', () => {
     act(() => hook.result.current.setTranscode(true));
     hook.rerender({ track: { index: 1, codec: 'aac' } });
     expect(hook.result.current.mode).toBe('hls');
-    expect(video.src).toContain('audio=1');
+    await waitFor(() => expect(video.src).toContain('audio=1'));
   });
 });
