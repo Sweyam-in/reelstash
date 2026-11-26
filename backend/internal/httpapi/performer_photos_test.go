@@ -22,7 +22,9 @@ func callPhoto(h http.HandlerFunc, method string, id, photoID int64) *httptest.R
 	if photoID != 0 {
 		rc.URLParams.Add("photoId", strconv.FormatInt(photoID, 10))
 	}
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rc)
+	// An admin's request: every library is in scope, as withLibraryScope sets it.
+	req = req.WithContext(context.WithValue(ctx, libraryCtxKey, libraryScope{All: true}))
 	rec := httptest.NewRecorder()
 	h(rec, req)
 	return rec

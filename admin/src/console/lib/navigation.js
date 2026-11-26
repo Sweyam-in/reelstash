@@ -1,5 +1,5 @@
 import {
-  Activity, BellRing, BrushCleaning, CalendarClock, ChartColumn, ClipboardCheck, Copy, Disc, Film, HardDrive, House,
+  Activity, BellRing, BrushCleaning, CalendarClock, ChartColumn, ClipboardCheck, Copy, Film, HardDrive, House,
   LibraryBig, ListChecks, Palette, Plug, Puzzle, ScrollText, Tags, UserCog, WandSparkles,
 } from 'lucide-react';
 
@@ -26,7 +26,6 @@ export const NAV_GROUPS = [
       { id: 'videos', label: 'Videos', path: '/admin/videos', icon: Film, shortcut: 'v', keywords: ['titles', 'media', 'files', 'metadata', 'match'] },
       { id: 'review', label: 'Review queue', path: '/admin/review', icon: ClipboardCheck, shortcut: 'r', keywords: ['matches', 'suggestions', 'confirm', 'filename'] },
       { id: 'duplicates', label: 'Duplicates', path: '/admin/duplicates', icon: Copy, shortcut: 'x', keywords: ['identical', 'copies', 'hash', 'space'] },
-      { id: 'dvds', label: 'DVDs', path: '/admin/dvds', icon: Disc, shortcut: 'c', keywords: ['dvd', 'video_ts', 'vob', 'convert', 'mp4'] },
     ],
   },
   {
@@ -59,6 +58,7 @@ export const NAV_GROUPS = [
         tabs: [
           { id: 'rules', label: 'Folder rules', path: '/admin/organizer', keywords: ['move', 'studio', 'performer', 'cleanup'] },
           { id: 'rename', label: 'Rename pipeline', path: '/admin/rename', shortcut: 'f', keywords: ['filenames', 'template', 'apply'] },
+          { id: 'dvds', label: 'DVDs', path: '/admin/dvds', shortcut: 'c', keywords: ['dvd', 'video_ts', 'vob', 'convert', 'mp4'] },
         ],
       },
     ],

@@ -28,7 +28,7 @@ test('a detail page resolves to its list entry, and a tab to its own label', () 
 
 test('sibling tabs of one sidebar entry are found', () => {
   assert.deepEqual(tabsOf('metadata').map(t => t.label), ['People', 'Studios', 'Collections / series', 'Categories, genres & tags']);
-  assert.deepEqual(tabsOf('organizer').map(t => t.path), ['/admin/organizer', '/admin/rename']);
+  assert.deepEqual(tabsOf('organizer').map(t => t.path), ['/admin/organizer', '/admin/rename', '/admin/dvds']);
 });
 
 test('the sidebar stays compact: few groups, few entries', () => {

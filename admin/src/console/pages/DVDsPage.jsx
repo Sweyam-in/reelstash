@@ -4,7 +4,8 @@ import { Button } from '@spatika/react';
 import { Disc } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@spatika/react';
 import { convertDVDs, getDVDs } from '../../api';
-import { BulkBar, EmptyState, ErrorState, PageHeader, PageStack, Panel, SkeletonRows, Status, useConfirm } from '../components';
+import { BulkBar, EmptyState, ErrorState, PageHeader, PageStack, Panel, SectionTabs, SkeletonRows, Status, useConfirm } from '../components';
+import { tabsOf } from '../lib/navigation';
 import { formatBytes, plural } from '../lib/format';
 import { useNotify } from '../lib/notify';
 import { useResource } from '../lib/useResource';
@@ -52,6 +53,7 @@ export function DVDsPage() {
 
   return <PageStack>
     <PageHeader title="DVDs" subtitle="A library scan notices VIDEO_TS folders. Converting one is a separate step: ReelStash writes an MP4 next to the folder and leaves the VOB files in place." />
+    <SectionTabs entries={tabsOf('organizer')} activePath="/admin/dvds" label="Organizer sections" />
     {chosen.length > 0 && <BulkBar count={chosen.length} noun={chosen.length === 1 ? 'DVD' : 'DVDs'} onClear={() => setSelected([])}>
       <Button size="sm" disabled={busy} onClick={() => convert(chosen)}>Convert to MP4</Button>
     </BulkBar>}
