@@ -1,9 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// reelstash-app: the media library (index.html). ReelStash Admin (admin/) is a separate app with
-// its own build, tests and image; the two only meet over the HTTP API and links between origins
+// reelstash-media: the media library (index.html). ReelStash Admin (admin/) is a separate app with
+// its own build, tests, image and API server; the two only meet through links between origins
 // (REELSTASH_MEDIA_URLS / REELSTASH_ADMIN_URLS tell each one where the other lives).
+// In development it talks to the media API server (scripts/dev.sh starts it on :8902).
+const api = process.env.REELSTASH_MEDIA_API || 'http://localhost:8902';
+
 export default defineConfig({
   plugins: [react()],
   // Keep the bundle loadable on older phones and browsers (Safari 14+, Firefox 78+, Chrome 87+).
@@ -11,9 +14,9 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api': 'http://localhost:8902',
-      '/auth': 'http://localhost:8902',
-      '/healthz': 'http://localhost:8902',
+      '/api': api,
+      '/auth': api,
+      '/healthz': api,
     },
   },
 });

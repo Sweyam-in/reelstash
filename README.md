@@ -6,7 +6,7 @@ ReelStash is a self-hosted media library and file organizer. It indexes video fi
 
 The repository contains a Go API, React UIs, PostgreSQL and SQLite schemas, background workers, and Docker deployment files.
 
-The Flutter app for iOS and Android lives in the separate [reelstash-app project](https://github.com/Sweyam-in/reelstash-app). The `app/` directory here is the browser-based media library.
+The Flutter app for iOS and Android lives in the separate [reelstash-app project](https://github.com/Sweyam-in/reelstash-app). The `media/` directory here is the browser-based media library.
 
 ## What it does
 
@@ -38,12 +38,12 @@ For a local SQLite installation, see [macOS and Linux Snap packaging](docs/local
 Prerequisites: Docker, Go **1.27.3** (as specified in `backend/go.mod`), and Node.js **22** with npm (the version used by the UI Docker build).
 
 ```bash
-npm ci --prefix app
+npm ci --prefix media
 npm ci --prefix admin
 scripts/dev.sh
 ```
 
-Open <http://localhost:3000> for the app and <http://localhost:3001/admin> for the admin. The launcher reads `.env.local` (created from `.env.local.example` on first run), starts PostgreSQL in a Docker container on port `5432` (or uses a PostgreSQL already listening there), the API on `8902`, and Vite on `3000`. With its default local settings, the emergency login password is `admin`. Change `EMERGENCY_LOCAL_PASSWORD` for any shared development machine. The Postgres container remains running after you stop the launcher.
+Open <http://localhost:3000> for the app and <http://localhost:3001/admin> for the admin. The launcher reads `.env.local` (created from `.env.local.example` on first run), starts PostgreSQL in a Docker container on port `5432` (or uses a PostgreSQL already listening there), the media API on `8902`, the admin API (with every background job) on `8903`, and the two Vite apps on `3000` and `3001`. With its default local settings, the emergency login password is `admin`. Change `EMERGENCY_LOCAL_PASSWORD` for any shared development machine. The Postgres container remains running after you stop the launcher.
 
 For a Docker-only local stack, see [Getting started](docs/getting-started.md). Set `MEDIA_ROOT` in `.env.local` and start it with `scripts/dev-docker.sh`.
 
@@ -68,8 +68,8 @@ The [test guide](TESTING.md) has more on running the tests.
 ## Repository layout
 
 ```text
-backend/       Go API, workers, providers, embedded SQL migrations
-app/              browser media library (React/Vite, own tests and image)
+backend/       Go API: media server, admin server (jobs, workers), providers, embedded SQL migrations
+media/            browser media library (React/Vite, own tests and image)
 admin/            reelstash-admin: Admin, Files and Downloads (React/Vite, own tests and image)
 docs/             Product and developer documentation
 scripts/          dev.sh (native run), dev-docker.sh (Compose run), test.sh

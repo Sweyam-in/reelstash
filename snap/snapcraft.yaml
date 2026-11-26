@@ -22,14 +22,14 @@ parts:
     stage-packages: [ffmpeg, xdg-utils, curl, libsqlite3-0]
     override-build: |
       set -eu
-      cd "$CRAFT_PART_SRC/app"
+      cd "$CRAFT_PART_SRC/media"
       npm ci
       npm run build
       cd "$CRAFT_PART_SRC/admin"
       npm ci
       npm run build
       mkdir -p "$CRAFT_PART_INSTALL/web" "$CRAFT_PART_INSTALL/bin" "$CRAFT_PART_INSTALL/share/applications"
-      cp -R "$CRAFT_PART_SRC/app/dist/." "$CRAFT_PART_INSTALL/web/"
+      cp -R "$CRAFT_PART_SRC/media/dist/." "$CRAFT_PART_INSTALL/web/"
       cp -R "$CRAFT_PART_SRC/admin/dist/." "$CRAFT_PART_INSTALL/web/"
       cd "$CRAFT_PART_SRC/backend"
       CGO_ENABLED=1 go build -trimpath -o "$CRAFT_PART_INSTALL/bin/reelstash-server" ./cmd/server

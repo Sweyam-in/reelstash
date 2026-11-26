@@ -6,13 +6,13 @@ import "github.com/go-chi/chi/v5"
 func (a *API) mountMedia(r chi.Router) {
 	// Browsing, playback and per-user state (favorites, ratings, markers,
 	// watch later) are open to every user within their libraries; editing
-	// shared metadata is admin-only (admin := r.With(a.adminOnly)).
+	// shared metadata is admin-only (admin := a.adminRoutes(r)).
 	r.Route("/media", func(r chi.Router) {
 		r.Get("/", a.listMediaItems)
-		r.With(a.adminOnly).Post("/", a.createMediaItem)
+		a.adminRoutes(r).Post("/", a.createMediaItem)
 		r.Route("/{id}", func(r chi.Router) {
 			r.Use(a.requireMediaAccess)
-			admin := r.With(a.adminOnly)
+			admin := a.adminRoutes(r)
 			r.Get("/", a.getMediaItem)
 			r.Patch("/", a.updateMediaItem)
 			r.Get("/artwork", a.serveMediaArtwork)

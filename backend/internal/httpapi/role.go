@@ -39,16 +39,16 @@ func (r Role) ServesAdmin() bool { return r != RoleMedia }
 // WithRole picks which routes the router mounts. The default is RoleAll.
 func WithRole(role Role) Option { return func(a *API) { a.Role = role } }
 
-// adminOnly guards an admin action. On the media server it answers 404, so
-// the media server has no admin surface at all: admin actions live on the
-// admin server, which the admin app talks to.
-func (a *API) adminOnly(next http.Handler) http.Handler {
+// adminRoutes returns where to register admin-only actions on a route group.
+// On servers that serve admin it is the group behind requireAdmin. On the
+// media server it is a router that is never mounted, so those routes do not
+// exist there at all: admin actions live on the admin server, which the
+// admin app talks to.
+func (a *API) adminRoutes(r chi.Router) chi.Router {
 	if a.Role.ServesAdmin() {
-		return a.requireAdmin(next)
+		return r.With(a.requireAdmin)
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusNotFound, "this is an admin action; use the ReelStash admin app")
-	})
+	return chi.NewRouter()
 }
 
 // PluginsChanged is the event a server publishes after an admin installs,

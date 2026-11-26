@@ -24,7 +24,7 @@
 
 ```bash
 docker compose ps
-docker compose logs -f reelstash ui postgres
+docker compose logs -f media-api admin-api ui admin postgres
 curl -fsS http://localhost:8902/healthz
 ```
 

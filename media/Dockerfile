@@ -1,4 +1,4 @@
-# reelstash-app: the ReelStash media library (image reelstash-ui).
+# reelstash-media: the ReelStash media library (image reelstash-ui).
 FROM docker.io/library/node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./

@@ -32,7 +32,7 @@ go.work.sum
 backend/server
 backend/reelstash-server
 
-# Node / Vite (app and admin)
+# Node / Vite (media and admin)
 node_modules/
 dist/
 .vite/
@@ -85,3 +85,6 @@ AGENTS.md
 .aider*
 .mcp.json
 .github/copilot-instructions.md
+
+# Built API servers from scripts/dev.sh
+backend/.bin/

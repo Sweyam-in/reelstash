@@ -23,7 +23,7 @@ How the suite is organised:
 | --- | --- | --- |
 | HTTP API (routes, auth, CRUD, files, jobs, providers, streaming) | `internal/httpapi/*_test.go` | Drives the real router through `harness_test.go`: an admin and two users with live sessions. |
 | Authorization matrix | `authz_test.go` | Walks every registered `/api` route: anonymous is 401, non-admins get 403 on admin routes. New routes are covered automatically. |
-| UI ↔ server contract | `contract_test.go` | Reads `app/src/api.js` and `admin/src/api.js` and fails if it calls an endpoint the router does not have. |
+| UI ↔ server contract | `contract_test.go` | Reads `media/src/api.js` and `admin/src/api.js` and fails if an app calls an endpoint its own server (media or admin) does not have. |
 | Sign-in | `internal/auth` | Runs the real OIDC + PKCE flow against an in-process provider (`internal/auth/authtest`). |
 | Everything else | `internal/<pkg>/*_test.go` | scanner, namer, organizer, rename, jobs, notify, config, database, … |
 

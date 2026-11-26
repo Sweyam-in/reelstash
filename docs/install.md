@@ -79,7 +79,7 @@ Run these from the install folder:
 
 ```bash
 docker compose ps                  # status
-docker compose logs -f reelstash   # API log
+docker compose logs -f media-api admin-api   # API logs
 docker compose down                # stop; data is kept
 ```
 

@@ -20,13 +20,22 @@ flowchart LR
   Events --> Browser
 ```
 
-The Go process in `backend/cmd/server/main.go` connects to PostgreSQL, applies embedded SQL migrations, sets up authentication and providers, registers job handlers, starts the HTTP server, and samples storage capacity. It shuts down HTTP and workers gracefully on SIGTERM or Ctrl+C.
+The Go API runs as two servers built from one module, both wired by `backend/internal/server`:
+
+| Server | Command | Image target | Serves | Runs |
+| --- | --- | --- | --- | --- |
+| media | `cmd/media-server` | `media` | Browsing, playback (direct, HLS), sign-in, per-user state. Admin-only routes are not registered. | Sign-in plugin bundles only. No jobs. |
+| admin | `cmd/admin-server` | `admin` | The admin API and the reads the admin app needs. | Every background job, the scanner, schedules, file watching, downloads and all plugin bundles. |
+
+`cmd/server` runs both halves in one process (`REELSTASH_ROLE=media` or `admin` picks one); local packages, SQLite installs and tests use it.
+
+Both servers share one PostgreSQL database. Each applies the embedded migrations at start under an advisory lock, so they can start together. Work the media server asks for (sprites, previews) is written as a `PENDING` `background_job` row; the admin server picks such rows up every few seconds and claims each one atomically. Notifications and plugin changes cross between the servers over PostgreSQL `LISTEN/NOTIFY` (`internal/events/bridge.go`), so a scan that finds new titles reaches people connected to the media server, and the media server reloads its sign-in plugins when an admin changes them. Each server shuts down HTTP and workers gracefully on SIGTERM or Ctrl+C.
 
 ## Frontend and HTTP boundary
 
-`ui/` builds four HTML entries: `index.html` for the media library, `admin.html` for Admin, `files.html` for Files and `downloads.html` for Downloads. In development, Vite serves them from one origin. The production Dockerfile has `media` and `admin` targets so the media UI and Admin + Files can run on separate origins. nginx serves the static apps and forwards `/api`, `/auth`, and `/healthz` to the Go service. It disables proxy buffering for server-sent events and direct media streams.
+`media/` is the media library web app (`index.html`); `admin/` is the admin web app with three entries: `admin.html` for Admin, `files.html` for Files and `downloads.html` for Downloads. Each is its own project with its own image, and they share no source. The media app's nginx forwards `/api`, `/auth`, and `/healthz` to the media server; the admin app's nginx forwards them to the admin server. Both disable proxy buffering for server-sent events and direct media streams. Editing lives only in the admin app: the media app's Edit buttons open the admin editor (`/admin/videos?edit=<id>`, `/admin/metadata/performers?edit=<id>` and so on) in a new tab.
 
-`ui/src/api.js` centralizes frontend API calls. `ui/src/libraryContext.jsx` tracks the selected library. The Go router (`internal/httpapi/router.go`) is the route and authorization boundary; hiding an Admin link in React never grants or removes permissions.
+Each app's `src/api.js` centralizes its API calls, and the backend contract test checks each against its own server's routes. `media/src/libraryContext.jsx` tracks the selected library. The Go router (`internal/httpapi/router.go`) is the route and authorization boundary; hiding an Admin link in React never grants or removes permissions.
 
 ## Backend packages
 

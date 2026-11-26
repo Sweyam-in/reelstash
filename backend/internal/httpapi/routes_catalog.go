@@ -5,7 +5,7 @@ import "github.com/go-chi/chi/v5"
 // mountCatalog registers people, studios, series, categories, tags, and playlists.
 func (a *API) mountCatalog(r chi.Router) {
 	r.Route("/performers", func(r chi.Router) {
-		admin := r.With(a.adminOnly)
+		admin := a.adminRoutes(r)
 		r.Get("/", a.listPerformers)
 		admin.Post("/", a.createPerformer)
 		admin.Get("/jobs/{jobId}", a.getPerformerMatchJob)
@@ -36,7 +36,7 @@ func (a *API) mountCatalog(r chi.Router) {
 		admin.Delete("/{id}", a.deletePerformer)
 	})
 	r.Route("/studios", func(r chi.Router) {
-		admin := r.With(a.adminOnly)
+		admin := a.adminRoutes(r)
 		r.Get("/", a.listStudios)
 		admin.Post("/", a.createStudio)
 		admin.Get("/jobs/{jobId}", a.getStudioMatchJob)
@@ -55,7 +55,7 @@ func (a *API) mountCatalog(r chi.Router) {
 		admin.Delete("/{id}", a.deleteStudio)
 	})
 	r.Route("/series", func(r chi.Router) {
-		admin := r.With(a.adminOnly)
+		admin := a.adminRoutes(r)
 		r.Get("/", a.listSeries)
 		admin.Post("/", a.createSeries)
 		r.Get("/{id}", a.getSeries)
@@ -78,7 +78,7 @@ func (a *API) mountCatalog(r chi.Router) {
 		admin.Delete("/{id}", a.deleteSeries)
 	})
 	r.Route("/categories", func(r chi.Router) {
-		admin := r.With(a.adminOnly)
+		admin := a.adminRoutes(r)
 		r.Get("/", a.listCategories)
 		admin.Post("/", a.createCategory)
 		admin.Put("/{id}", a.updateCategory)
@@ -86,7 +86,7 @@ func (a *API) mountCatalog(r chi.Router) {
 	})
 	r.Route("/tags", func(r chi.Router) {
 		r.Get("/", a.listTags)
-		r.With(a.adminOnly).Post("/", a.createTag)
+		a.adminRoutes(r).Post("/", a.createTag)
 	})
 	// Playlists are private: only their owner can see or change one.
 	r.Route("/collections", func(r chi.Router) {

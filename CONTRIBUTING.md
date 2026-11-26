@@ -36,7 +36,7 @@ The app runs at <http://localhost:3000> and the admin at <http://localhost:3001/
 ## Layout
 
 - `backend/`: Go API, workers, providers, SQL migrations
-- `app/`: media library UI (React/Vite)
+- `media/`: media library UI (React/Vite)
 - `admin/`: Admin, Files and Downloads UI (React/Vite)
 - `docs/`: product and developer documentation
 

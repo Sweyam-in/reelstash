@@ -20,6 +20,9 @@ function appEntries() {
   };
 }
 
+// In development it talks to the admin API server (scripts/dev.sh starts it on :8903).
+const adminApi = process.env.REELSTASH_ADMIN_API || 'http://localhost:8903';
+
 export default defineConfig({
   plugins: [react(), appEntries()],
   build: {
@@ -29,9 +32,9 @@ export default defineConfig({
   server: {
     port: 3001,
     proxy: {
-      '/api': 'http://localhost:8902',
-      '/auth': 'http://localhost:8902',
-      '/healthz': 'http://localhost:8902',
+      '/api': adminApi,
+      '/auth': adminApi,
+      '/healthz': adminApi,
     },
   },
 });

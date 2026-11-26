@@ -16,8 +16,12 @@ services:
       timeout: 3s
       retries: 20
 
-  reelstash:
-    build: ./backend
+  # media-api: the media library API (browsing, playback, sign-in). It runs no
+  # background jobs; anything it asks for is queued for admin-api.
+  media-api:
+    build:
+      context: ./backend
+      target: media
     restart: unless-stopped
     depends_on:
       postgres:
@@ -32,7 +36,43 @@ services:
       - ./data/plugins:/app-data/plugins
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER:-reelstash}:${POSTGRES_PASSWORD:-reelstash}@postgres:5432/${POSTGRES_DB:-reelstash}?sslmode=disable
+      - TZ=${TZ:-UTC}
+      - REELSTASH_THUMBNAIL_DIR=/app-data/thumbnails
+      - REELSTASH_POSTER_DIR=/app-data/posters
+      - REELSTASH_SPRITE_DIR=/app-data/sprites
+      - REELSTASH_PREVIEW_DIR=/app-data/previews
+      - REELSTASH_SUBTITLE_DIR=/app-data/subtitles
+      - EMERGENCY_LOCAL_AUTH=${EMERGENCY_LOCAL_AUTH:-false}
+      - EMERGENCY_LOCAL_PASSWORD=${EMERGENCY_LOCAL_PASSWORD:-changeme}
+      - REELSTASH_PLUGIN_DIR=/app-data/plugins
+      - REELSTASH_SERVER_NAME=${REELSTASH_SERVER_NAME:-ReelStash}
+      - REELSTASH_PUBLIC_ORIGIN=${REELSTASH_PUBLIC_ORIGIN:-http://localhost:8902}
+      - REELSTASH_MEDIA_URLS=${REELSTASH_MEDIA_URLS:-}
+      - REELSTASH_ADMIN_URLS=${REELSTASH_ADMIN_URLS:-}
       - REELSTASH_ADDR=:8902
+    ports:
+      - "8902:8902"
+
+  # admin-api: the admin API plus scans, metadata matching, thumbnails,
+  # schedules, file watching, downloads and plugin bundles.
+  admin-api:
+    build:
+      context: ./backend
+      target: admin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${MEDIA_ROOT:-./data/media}:/mnt          # set MEDIA_ROOT in .env.local
+      - ./data/thumbnails:/app-data/thumbnails
+      - ./data/posters:/app-data/posters
+      - ./data/sprites:/app-data/sprites
+      - ./data/previews:/app-data/previews
+      - ./data/subtitles:/app-data/subtitles
+      - ./data/plugins:/app-data/plugins
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-reelstash}:${POSTGRES_PASSWORD:-reelstash}@postgres:5432/${POSTGRES_DB:-reelstash}?sslmode=disable
       - TZ=${TZ:-UTC}
       - REELSTASH_THUMBNAIL_DIR=/app-data/thumbnails
       - REELSTASH_POSTER_DIR=/app-data/posters
@@ -53,19 +93,20 @@ services:
       - REELSTASH_QBIT_URL=${REELSTASH_QBIT_URL:-}
       - REELSTASH_QBIT_USERNAME=${QBIT_USERNAME:-admin}
       - REELSTASH_QBIT_PASSWORD=${QBIT_PASSWORD:-}
+      - REELSTASH_ADDR=:8903
     ports:
-      - "8902:8902"
+      - "8903:8903"
 
-  # reelstash-app: the media library.
-  ui:
+  # reelstash-media: the media library app. Its nginx proxies to media-api.
+  media:
     build:
-      context: ./app
+      context: ./media
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "3091:3091"
     depends_on:
-      - reelstash
+      - media-api
 
   # reelstash-admin: ReelStash Admin, Files and Downloads, built and run on its own.
   admin:
@@ -76,16 +117,18 @@ services:
     ports:
       - "3092:3091"
     depends_on:
-      - reelstash
+      - admin-api
 
   # Optional: qBittorrent for the Downloads workspace. Turn it on with
   # COMPOSE_PROFILES=downloads and QBIT_PASSWORD (6+ characters) in .env.local.
   # It mounts the same MEDIA_ROOT at /mnt, so both apps see identical paths.
   # qbittorrent-init writes QBIT_USERNAME/QBIT_PASSWORD into its config first.
   qbittorrent-init:
-    build: ./backend
+    build:
+      context: ./backend
+      target: admin
     profiles: ["downloads"]
-    entrypoint: ["reelstash-server", "qbit-init", "/config/qBittorrent/qBittorrent.conf"]
+    entrypoint: ["reelstash-admin-server", "qbit-init", "/config/qBittorrent/qBittorrent.conf"]
     environment:
       - REELSTASH_QBIT_USERNAME=${QBIT_USERNAME:-admin}
       - REELSTASH_QBIT_PASSWORD=${QBIT_PASSWORD:-}

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs the whole ReelStash test suite: Go backend + web UI.
-# Usage: scripts/test.sh [backend|app|admin|ui]   (ui = app + admin)
+# Usage: scripts/test.sh [backend|media|admin|ui]   (ui = media + admin)
 #
 # The backend integration tests need a Postgres they can freely write to. This uses a separate
 # `reelstash_test` database inside the dev container (the one scripts/dev.sh starts, reelstash-dev-postgres), never `reelstash`.
@@ -23,7 +23,7 @@ if [ "$WHAT" = "all" ] || [ "$WHAT" = "backend" ]; then
   (cd "$ROOT/backend" && go vet ./... && go test ./... -count=1)
 fi
 
-for APP in app admin; do
+for APP in media admin; do
   if [ "$WHAT" = "all" ] || [ "$WHAT" = "ui" ] || [ "$WHAT" = "$APP" ]; then
     echo "==> reelstash-$APP"
     (cd "$ROOT/$APP" && { [ -d node_modules ] || npm ci; } && npm test)

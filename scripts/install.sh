@@ -1,6 +1,6 @@
 #!/bin/sh
-# ReelStash installer: sets up a complete ReelStash stack (PostgreSQL, API, media
-# app, admin app and, optionally, qBittorrent for the Downloads workspace) with
+# ReelStash installer: sets up a complete ReelStash stack (PostgreSQL, the media
+# and admin API servers, media app, admin app and, optionally, qBittorrent for the Downloads workspace) with
 # Docker Compose on any Linux or macOS machine.
 #
 #   wget -qO- https://raw.githubusercontent.com/Sweyam-in/reelstash/main/scripts/install.sh | sh
@@ -93,8 +93,9 @@ services:
       start_period: 20s
     logging: *default-logging
 
-  reelstash:
-    image: ${REELSTASH_API_IMAGE}:${REELSTASH_IMAGE_TAG}
+  # The media library API: browsing, playback, sign-in. It runs no jobs.
+  media-api:
+    image: ${REELSTASH_MEDIA_API_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     stop_grace_period: 30s
     depends_on:
@@ -103,6 +104,45 @@ services:
     environment:
       DATABASE_URL: postgres://reelstash:${POSTGRES_PASSWORD}@postgres:5432/reelstash?sslmode=disable
       REELSTASH_ADDR: :8902
+      TZ: ${TZ:-UTC}
+      REELSTASH_THUMBNAIL_DIR: /app-data/thumbnails
+      REELSTASH_POSTER_DIR: /app-data/posters
+      REELSTASH_SPRITE_DIR: /app-data/sprites
+      REELSTASH_PREVIEW_DIR: /app-data/previews
+      REELSTASH_SUBTITLE_DIR: /app-data/subtitles
+      REELSTASH_PLUGIN_DIR: /app-data/plugins
+      REELSTASH_SERVER_NAME: ${REELSTASH_SERVER_NAME:-ReelStash}
+      REELSTASH_MEDIA_URLS: ${REELSTASH_MEDIA_URLS:-}
+      REELSTASH_ADMIN_URLS: ${REELSTASH_ADMIN_URLS:-}
+      EMERGENCY_LOCAL_AUTH: "false"
+    volumes:
+      - ${MEDIA_ROOT}:/mnt
+      - thumbnail_data:/app-data/thumbnails
+      - poster_data:/app-data/posters
+      - sprite_data:/app-data/sprites
+      - preview_data:/app-data/previews
+      - subtitle_data:/app-data/subtitles
+      - plugin_data:/app-data/plugins
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8902/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  # The admin API, plus scans, metadata matching, thumbnails, schedules,
+  # downloads and plugin bundles.
+  admin-api:
+    image: ${REELSTASH_ADMIN_API_IMAGE}:${REELSTASH_IMAGE_TAG}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://reelstash:${POSTGRES_PASSWORD}@postgres:5432/reelstash?sslmode=disable
+      REELSTASH_ADDR: :8903
       TZ: ${TZ:-UTC}
       REELSTASH_THUMBNAIL_DIR: /app-data/thumbnails
       REELSTASH_POSTER_DIR: /app-data/posters
@@ -129,7 +169,7 @@ services:
       - subtitle_data:/app-data/subtitles
       - plugin_data:/app-data/plugins
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8902/healthz"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8903/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -141,7 +181,7 @@ services:
     image: ${REELSTASH_UI_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
-      reelstash:
+      media-api:
         condition: service_healthy
     ports:
       - "${REELSTASH_UI_PORT:-3091}:3091"
@@ -158,7 +198,7 @@ services:
     image: ${REELSTASH_ADMIN_IMAGE}:${REELSTASH_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
-      reelstash:
+      admin-api:
         condition: service_healthy
     ports:
       - "${REELSTASH_ADMIN_PORT:-3092}:3091"
@@ -173,9 +213,9 @@ services:
   # Downloads workspace (profile "downloads", switched on by COMPOSE_PROFILES in .env).
   # qbittorrent-init writes the WebUI login into qBittorrent's config before it starts.
   qbittorrent-init:
-    image: ${REELSTASH_API_IMAGE}:${REELSTASH_IMAGE_TAG}
+    image: ${REELSTASH_ADMIN_API_IMAGE}:${REELSTASH_IMAGE_TAG}
     profiles: ["downloads"]
-    entrypoint: ["reelstash-server", "qbit-init", "/config/qBittorrent/qBittorrent.conf"]
+    entrypoint: ["reelstash-admin-server", "qbit-init", "/config/qBittorrent/qBittorrent.conf"]
     environment:
       REELSTASH_QBIT_USERNAME: ${QBIT_USERNAME:-admin}
       REELSTASH_QBIT_PASSWORD: ${QBIT_PASSWORD:-}
@@ -224,7 +264,10 @@ write_gpu_compose() {
 	cat <<'EOF'
 # Hardware transcoding: hands the host's GPU render node to ffmpeg (VAAPI).
 services:
-  reelstash:
+  media-api:
+    devices:
+      - /dev/dri:/dev/dri
+  admin-api:
     devices:
       - /dev/dri:/dev/dri
 EOF
@@ -234,12 +277,20 @@ write_build_compose() {
 	cat <<'EOF'
 # --from-source: build the images from ./src instead of pulling them.
 services:
-  reelstash:
-    build: ./src/backend
+  media-api:
+    build:
+      context: ./src/backend
+      target: media
+  admin-api:
+    build:
+      context: ./src/backend
+      target: admin
   qbittorrent-init:
-    build: ./src/backend
+    build:
+      context: ./src/backend
+      target: admin
   ui:
-    build: ./src/app
+    build: ./src/media
   admin:
     build: ./src/admin
 EOF
@@ -388,9 +439,9 @@ if [ "$UPGRADE" = 0 ]; then
 	if [ "$FROM_SOURCE" = 1 ]; then
 		write_build_compose >"$DIR/compose.build.yml"
 		COMPOSE_FILES="$COMPOSE_FILES:compose.build.yml"
-		API_IMAGE="reelstash-api"; UI_IMAGE="reelstash-ui"; ADMIN_IMAGE="reelstash-admin"; TAG="local"
+		MEDIA_API_IMAGE="reelstash-media-api"; ADMIN_API_IMAGE="reelstash-admin-api"; UI_IMAGE="reelstash-ui"; ADMIN_IMAGE="reelstash-admin"; TAG="local"
 	else
-		API_IMAGE="$REGISTRY/reelstash-api"; UI_IMAGE="$REGISTRY/reelstash-ui"; ADMIN_IMAGE="$REGISTRY/reelstash-admin"
+		MEDIA_API_IMAGE="$REGISTRY/reelstash-media-api"; ADMIN_API_IMAGE="$REGISTRY/reelstash-admin-api"; UI_IMAGE="$REGISTRY/reelstash-ui"; ADMIN_IMAGE="$REGISTRY/reelstash-admin"
 	fi
 
 	TZ_NAME=""
@@ -403,7 +454,8 @@ if [ "$UPGRADE" = 0 ]; then
 		echo "COMPOSE_FILE=$COMPOSE_FILES"
 		[ "$QBIT" = 1 ] && echo "COMPOSE_PROFILES=downloads"
 		echo ""
-		echo "REELSTASH_API_IMAGE=$API_IMAGE"
+		echo "REELSTASH_MEDIA_API_IMAGE=$MEDIA_API_IMAGE"
+		echo "REELSTASH_ADMIN_API_IMAGE=$ADMIN_API_IMAGE"
 		echo "REELSTASH_UI_IMAGE=$UI_IMAGE"
 		echo "REELSTASH_ADMIN_IMAGE=$ADMIN_IMAGE"
 		echo "REELSTASH_IMAGE_TAG=$TAG"
@@ -445,6 +497,19 @@ else
 		sed -i.bak "s|^REELSTASH_IMAGE_TAG=.*|REELSTASH_IMAGE_TAG=$TAG|" "$ENV_FILE"
 		rm -f "$ENV_FILE.bak"
 	fi
+	# Installs from before the media/admin split have one REELSTASH_API_IMAGE;
+	# add the two API images next to it.
+	if [ -z "$(env_get REELSTASH_MEDIA_API_IMAGE)" ]; then
+		OLD_API=$(env_get REELSTASH_API_IMAGE)
+		[ -n "$OLD_API" ] || OLD_API="$REGISTRY/reelstash-api"
+		{
+			echo ""
+			echo "# Added by the installer: the API now runs as a media and an admin server."
+			echo "REELSTASH_MEDIA_API_IMAGE=$(printf '%s' "$OLD_API" | sed 's|reelstash-api$|reelstash-media-api|')"
+			echo "REELSTASH_ADMIN_API_IMAGE=$(printf '%s' "$OLD_API" | sed 's|reelstash-api$|reelstash-admin-api|')"
+		} >>"$ENV_FILE"
+		say "Updated $ENV_FILE for the separate media and admin API servers."
+	fi
 	HOST_NAME=$(env_get REELSTASH_MEDIA_URLS | sed 's|^http://||; s|:[0-9]*$||')
 	UI_PORT=$(env_get REELSTASH_UI_PORT); ADMIN_PORT=$(env_get REELSTASH_ADMIN_PORT)
 fi
@@ -473,7 +538,7 @@ i=0
 until http_ok "http://127.0.0.1:$UI_PORT/healthz"; do
 	i=$((i + 1))
 	if [ "$i" -gt 60 ]; then
-		warn "ReelStash did not answer within 3 minutes. Check: cd $DIR && docker compose logs -f reelstash"
+		warn "ReelStash did not answer within 3 minutes. Check: cd $DIR && docker compose logs -f media-api admin-api"
 		exit 1
 	fi
 	sleep 3
@@ -507,6 +572,6 @@ if [ "$UPGRADE" = 0 ]; then
 fi
 say ""
 say "Manage it from $DIR:"
-say "  docker compose logs -f reelstash     # logs"
+say "  docker compose logs -f media-api admin-api   # logs"
 say "  docker compose down                  # stop (data is kept in Docker volumes)"
 say "  re-run this installer to update"

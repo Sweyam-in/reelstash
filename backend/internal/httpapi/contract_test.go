@@ -12,9 +12,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// The web apps talk to this server through app/src/api.js and admin/src/api.js. This test reads that
-// file and checks every endpoint it calls (method + path) is registered on the
-// router, so a renamed or removed route fails here instead of as a 404 in the
+// The media app talks to the media server through media/src/api.js, and the admin app to the
+// admin server through admin/src/api.js. This test reads each file and checks every endpoint it
+// calls (method + path) is registered on that app's own server, so a renamed or removed route fails here instead of as a 404 in the
 // browser. It only checks routes exist; behaviour is covered elsewhere.
 
 var (
@@ -57,19 +57,13 @@ func literalPath(src string) string {
 
 type endpoint struct{ method, path string }
 
-func uiEndpoints(t *testing.T) []endpoint {
+func uiEndpoints(t *testing.T, app string) []endpoint {
 	t.Helper()
-	// Both web apps keep their own API client; each must only call routes the server has.
-	var src strings.Builder
-	for _, app := range []string{"app", "admin"} {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "..", app, "src", "api.js"))
-		if err != nil {
-			t.Skipf("%s/src/api.js not available: %v", app, err)
-		}
-		src.Write(raw)
-		src.WriteString("\n")
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", app, "src", "api.js"))
+	if err != nil {
+		t.Skipf("%s/src/api.js not available: %v", app, err)
 	}
-	srcText := src.String()
+	srcText := string(raw)
 	seen := map[endpoint]bool{}
 	add := func(method, path string) {
 		if strings.HasPrefix(path, "/") {
@@ -110,15 +104,23 @@ func routeMatcher(t *testing.T, h http.Handler) func(method, path string) bool {
 
 func TestUIEndpointsExistOnTheServer(t *testing.T) {
 	h := newHarness(t)
-	matches := routeMatcher(t, h.handler)
-	endpoints := uiEndpoints(t)
-	if len(endpoints) < 150 {
-		t.Fatalf("only %d endpoints found in api.js; the parser is broken", len(endpoints))
-	}
-	for _, e := range endpoints {
-		if !matches(e.method, e.path) {
-			t.Errorf("ui calls %s %s but the server has no such route", e.method, e.path)
-		}
+	for _, c := range []struct {
+		app  string
+		role Role
+		min  int
+	}{{"media", RoleMedia, 60}, {"admin", RoleAdmin, 150}} {
+		t.Run(c.app, func(t *testing.T) {
+			matches := routeMatcher(t, NewRouter(h.pool, h.cfg, nil, nil, nil, nil, nil, WithPlugins(nil, h.authPlugins), WithRole(c.role)))
+			endpoints := uiEndpoints(t, c.app)
+			if len(endpoints) < c.min {
+				t.Fatalf("only %d endpoints found in %s/src/api.js; the parser is broken", len(endpoints), c.app)
+			}
+			for _, e := range endpoints {
+				if !matches(e.method, e.path) {
+					t.Errorf("%s calls %s %s but the %s server has no such route", c.app, e.method, e.path, c.role)
+				}
+			}
+		})
 	}
 }
 

@@ -33,8 +33,8 @@ func TestMediaRoleHasNoAdminSurface(t *testing.T) {
 		{http.MethodPut, "/api/media/" + itoa(id) + "/metadata"},
 		{http.MethodDelete, "/api/media/" + itoa(id) + "/poster"},
 	} {
-		if rec := h.do(&h.admin, c.method, c.path, map[string]any{}); rec.Code != http.StatusNotFound {
-			t.Errorf("%s %s on the media server = %d, want 404", c.method, c.path, rec.Code)
+		if rec := h.do(&h.admin, c.method, c.path, map[string]any{}); rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("%s %s on the media server = %d, want 404 or 405", c.method, c.path, rec.Code)
 		}
 	}
 }

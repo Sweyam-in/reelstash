@@ -5,9 +5,9 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out="${1:-$repo/dist/local}"
 mkdir -p "$out/web" "$out/bin"
 
-(cd "$repo/app" && npm ci && npm run build)
+(cd "$repo/media" && npm ci && npm run build)
 (cd "$repo/admin" && npm ci && npm run build)
-cp -R "$repo/app/dist/." "$out/web/"
+cp -R "$repo/media/dist/." "$out/web/"
 cp -R "$repo/admin/dist/." "$out/web/"
 (cd "$repo/backend" && CGO_ENABLED=1 go build -trimpath -o "$out/bin/reelstash-server" ./cmd/server)
 
