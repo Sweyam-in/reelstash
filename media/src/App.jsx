@@ -6,7 +6,6 @@ import { Button, ThemeScope, Toaster } from './ui';
 import AppFrame from './frame/AppFrame';
 import You from './pages/You';
 import logo from './assets/logo.svg';
-import Duplicates from './pages/Duplicates';
 import { Home, Catalog, Browse, BrowseDetail, MediaDetail, backLabel } from './pages/Catalog';
 import { Playlists, PlaylistDetail } from './pages/Playlists';
 import Activity from './pages/Activity';
@@ -102,9 +101,9 @@ function MediaShell({ session, onSignOut, children }) {
 }
 
 // Old /admin, /files and /downloads bookmarks on the media origin: hand them to the admin app when it lives elsewhere.
-function AdminAppRedirect() {
+function AdminAppRedirect({ to }) {
   const location = useLocation();
-  const target = adminHref(location.pathname + location.search);
+  const target = adminHref(to || location.pathname + location.search);
   const elsewhere = target !== location.pathname + location.search;
   useEffect(() => { if (elsewhere) window.location.replace(target); }, [elsewhere, target]);
   return elsewhere ? null : <Navigate to="/" replace />;
@@ -133,7 +132,7 @@ function MediaRoutes({ session }) {
     <Route path="/link" element={<LinkDevicePage />} />
     <Route path="/favorites" element={<Catalog type="favorites" />} />
     <Route path="/watch-later" element={<Catalog type="watchlater" />} />
-    <Route path="/duplicates" element={<Duplicates />} />
+    <Route path="/duplicates" element={<AdminAppRedirect to="/admin/duplicates" />} />
     <Route path="/admin/*" element={<AdminAppRedirect />} />
     <Route path="/files/*" element={<AdminAppRedirect />} />
     <Route path="/downloads/*" element={<AdminAppRedirect />} />

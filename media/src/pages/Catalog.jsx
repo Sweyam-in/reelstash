@@ -8,11 +8,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogT
 import {
   addCollectionItem, addWatchLater, artworkUrl, createCollection, createMarker, getMarkers, previewUrl, removeWatchLater, getCategories, getCollections, getContinueWatching, getNextInSeries, getNextUp, subtitleUrl, getHomeRecommendations, getHomeSeries, getHomeSummary, startWatchSession, updateWatchSession, getMediaItem, getRelatedMedia, getMediaItems,
   createSeries, getPerformer, getPerformers, getSeries, getSeriesItem, getStudio, getStudios, performerImageUrl, setPerformerFavorite, setPerformerNotify, studioImageUrl, updateMediaItem, updatePlayback, getRelatedPerformers, getWatchActivity } from '../api';
-import PerformerSettings, { NewPerformerDialog } from './PerformerSettings';
 import { useLibrary } from '../libraryContext';
-import MediaSettings from './MediaSettings';
-import StudioSettings from './StudioSettings';
-import SeriesSettings from './SeriesSettings';
 import SeriesCover from '../components/SeriesCover';
 import { useDebounce } from './hooks/useDebounce';
 import { useAdaptiveSource, TRANSCODE_QUALITIES } from './hooks/useAdaptiveSource';
@@ -31,7 +27,7 @@ import AddToPlaylist from '../components/AddToPlaylist';
 import { isFullscreen as isPlayerFullscreen, onFullscreenChange, toggleFullscreen } from '../fullscreen';
 import { enqueue, nextInQueue, previousInQueue, setAutoplay, startQueue, syncPlaying, useQueue } from '../queue';
 import { fetchRandomTitles, playAll } from '../queueActions';
-import { adminHref } from '../appLinks';
+import { adminHref, editInAdmin } from '../appLinks';
 import { formatClock } from '../playerUtils';
 
 function useMediaList(params) {
@@ -1055,7 +1051,6 @@ export function Browse({ type, variant }) {
   const [showEmpty, setShowEmpty] = usePersistedState(`browse:${type}:showEmpty`, false);
   const [sort, setSort] = usePersistedState(`browse:${type}:sort`, 'count');
   const [view, setView] = usePersistedState(`browse:${type}:view`, 'grid');
-  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const debounced = useDebounce(query, 250);
   const favoriteFilter = type === 'performers' && onlyFavorites;
@@ -1072,7 +1067,7 @@ export function Browse({ type, variant }) {
     categories: 'Topics used in your collection.',
   };
   return <div className={`rs-page rs-catalog-${type}`}>
-    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total.toLocaleString()}</span></h1>{type !== 'performers' && <p>{extra?.blurb || blurbs[type]}</p>}</div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}{isAdmin && type === 'performers' && variant !== 'directors' && <button type="button" className="rs-button rs-button-primary rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.person.toLowerCase()}</button>}{isAdmin && type === 'series' && variant !== 'shows' && <button type="button" className="rs-button rs-button-outline rs-toolbar-new" onClick={() => setCreating(true)}><Plus size={16} /> New {terms.series.toLowerCase()}</button>}</div></div></header>
+    <header className="rs-page-header rs-directory-header"><div className="rs-directory-headrow"><div className="rs-directory-title"><p className="rs-eyebrow">Discover</p><h1>{config.title}<span className="rs-count">{loading && !items.length ? '…' : total.toLocaleString()}</span></h1>{type !== 'performers' && <p>{extra?.blurb || blurbs[type]}</p>}</div><div className="rs-directory-toolbar"><label className="rs-search"><Search size={18} /><input aria-label={`Search ${config.title.toLowerCase()}`} value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} /></label>{type === 'series' && <div className="rs-view-toggle" role="group" aria-label="View"><button type="button" aria-pressed={view !== 'list'} title="Grid view" onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button type="button" aria-pressed={view === 'list'} title="List view" onClick={() => setView('list')}><Rows3 size={16} /></button></div>}{type === 'categories' ? <button type="button" className="rs-button rs-button-outline" aria-pressed={showEmpty} onClick={() => setShowEmpty(value => !value)}>{showEmpty ? 'Show used only' : 'Show all categories'}</button> : type !== 'performers' && <span>A — Z</span>}{type === 'performers' && <FilterSelect label="Sort" value={sort} onChange={setSort} options={[{ value: 'count', label: 'Most titles' }, { value: 'name', label: 'Name A–Z' }, { value: 'name_desc', label: 'Name Z–A' }]} />}{isAdmin && type === 'performers' && variant !== 'directors' && <a className="rs-button rs-button-primary rs-toolbar-new" href={adminHref('/admin/metadata/performers')} target="_blank" rel="noopener"><Plus size={16} /> New {terms.person.toLowerCase()}</a>}{isAdmin && type === 'series' && variant !== 'shows' && <a className="rs-button rs-button-outline rs-toolbar-new" href={adminHref('/admin/metadata/series')} target="_blank" rel="noopener"><Plus size={16} /> New {terms.series.toLowerCase()}</a>}</div></div></header>
     {type === 'performers' && variant !== 'directors' && !query && peopleTab === 'all' && !letter && <MostWatchedStrip />}
     {type === 'performers' && <div className="rs-performer-subbar">
       <Tabs value={peopleTab} onValueChange={setPeopleTab}><TabsList>
@@ -1083,8 +1078,6 @@ export function Browse({ type, variant }) {
       </TabsList></Tabs>
       <nav className="rs-az" aria-label="Filter by first letter">{['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(l => <button key={l} type="button" className={letter === l ? 'is-active' : ''} aria-pressed={letter === l} onClick={() => setLetter(current => current === l ? '' : l)}>{l}</button>)}</nav>
     </div>}
-    {type === 'performers' && <NewPerformerDialog open={creating} onOpenChange={setCreating} onCreated={id => navigate(`/performers/${id}`)} />}
-    {type === 'series' && <NewSeriesDialog open={creating} onOpenChange={setCreating} onCreated={id => navigate(`/series/${id}`)} />}
     <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length && !query && !favoriteFilter && !letter} retry={refresh} title={`No ${config.title.toLowerCase()} yet`} message={type === 'series' ? 'Group the scenes of a movie or the episodes of a show: choose New series, or open a video’s Settings and use its Series tab.' : type === 'categories' ? 'No titles have categories yet.' : 'They appear here as your library is scanned.'} href={type === 'series' || type === 'categories' ? '/library' : undefined} action="Browse titles" />
     {!loading && !error && (!!query || favoriteFilter || !!letter) && !items.length && <Status empty title={favoriteFilter && !query ? 'No favorite performers yet' : 'No matches'} message={favoriteFilter && !query ? 'Open a performer and tap Favorite.' : 'Try a different name.'} />}
     {!!items.length && type === 'performers' && <VirtualWindow className="rs-portrait-grid" items={items} minColumn={168} gapX={16} gapY={24} aspect={3 / 4} extra={56} hasMore={hasMore} onNearEnd={loadMore} renderItem={(item, index) => <PerformerCard item={item} index={index} below />} />}
@@ -1162,30 +1155,6 @@ function SeriesHero({ entity, name, countLabel, onSettings }) {
   </header>;
 }
 
-function NewSeriesDialog({ open, onOpenChange, onCreated }) {
-  const { toast } = useToast();
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) setName(''); }, [open]);
-  async function submit(event) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      const created = await createSeries({ name: name.trim() });
-      onOpenChange(false);
-      onCreated?.(created.id);
-      toast({ title: 'Series created', description: 'Open Settings to add videos and match it with a provider.', tone: 'success' });
-    } catch (err) {
-      toast({ title: 'Could not create series', description: err.message, tone: 'danger' });
-    } finally {
-      setBusy(false);
-    }
-  }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>New series</DialogTitle><DialogDescription>For example a movie whose scenes are separate videos, or a show.</DialogDescription></DialogHeader>
-    <form className="rs-add-playlist-form" onSubmit={submit}><Input aria-label="Series name" placeholder="Series name" value={name} onChange={e => setName(e.target.value)} autoFocus /><Button type="submit" disabled={busy || !name.trim()}>Create</Button></form>
-  </DialogContent></Dialog>;
-}
-
 // "Start here" on a person's page: the title you play most and the newest one you have not watched.
 function StartHere({ titles, name }) {
   const location = useLocation();
@@ -1235,7 +1204,7 @@ export function BrowseDetail({ type }) {
   const config = { ...dimensions[type], ...dimensionTerms(type, terms) };
   const [name, setName] = useState('');
   const [entity, setEntity] = useState(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const editEntity = () => editInAdmin(type, entity.id);
   const navigate = useNavigate();
   const [studio, setStudio] = useState('all');
   const defaultSort = type === 'series' ? 'series' : type === 'performers' ? 'watched' : 'recent';
@@ -1325,7 +1294,7 @@ export function BrowseDetail({ type }) {
         {total > 0 && <PlayButtons filters={listFilters} shuffleLabel={`Shuffle ${total.toLocaleString()} ${total === 1 ? 'title' : 'titles'}`} />}
         <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
         <button type="button" className={`rs-button rs-button-outline ${entity.notify ? 'is-favorite' : ''}`} aria-pressed={!!entity.notify} onClick={toggleNotify}>{entity.notify ? <BellRing size={17} /> : <Bell size={17} />} {entity.notify ? 'Notifying you about new titles' : 'Notify me about new titles'}</button>
-        {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Edit</button>}
+        {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button>}
       </div>}
       {entity && total > 0 && <dl className="rs-person-stats" aria-label="Your watching">
         <div><dt>Watched</dt><dd>{watchedTotal.toLocaleString()} of {total.toLocaleString()}</dd></div>
@@ -1333,23 +1302,20 @@ export function BrowseDetail({ type }) {
         <div><dt>Favorites</dt><dd>{favoriteTotal.toLocaleString()}</dd></div>
         <div><dt>Your avg rating</dt><dd>{insights.avgRating ? `★ ${insights.avgRating.toFixed(1)}` : '—'}</dd></div>
       </dl>}
-    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} onSettings={isAdmin ? () => setSettingsOpen(true) : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
+    </header> : type === 'series' ? <SeriesHero entity={entity} name={name} countLabel={collectionLabel} onSettings={isAdmin && entity ? editEntity : null} /> : <header className={`rs-page-header rs-entity-header${portrait ? ' rs-entity-hero' : ''}${type === 'studios' ? ' rs-studio-hero' : ''}`}>
       {type === 'studios' && entity && <span className={`rs-studio-hero-logo${entity.logoImageId ? '' : ' is-mono'}`}><DirectoryMark item={entity} index={0} type="studios" /></span>}
       {portrait && entity && <span className="rs-entity-portrait"><DirectoryMark item={entity} index={0} type="performers" portrait /></span>}
       <div><p className="rs-eyebrow">{config.singular.toUpperCase()} / YOUR ARCHIVE</p><h1>{name || 'Loading…'}</h1><p>{collectionLabel}</p>
         {type === 'performers' && entity && (entity.notes || entity.metadata?.bio) && <p className="rs-performer-bio rs-entity-description">{entity.notes || entity.metadata.bio}</p>}
         {type === 'performers' && entity && <div className="rs-detail-actions">
           <button type="button" className={`rs-button rs-button-outline ${entity.favorite ? 'is-favorite' : ''}`} aria-pressed={!!entity.favorite} onClick={toggleFavorite}><Heart size={17} fill={entity.favorite ? 'currentColor' : 'none'} /> {entity.favorite ? 'Favorited' : 'Favorite'}</button>
-          {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Settings</button>}
+          {isAdmin && <button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button>}
         </div>}
         {type === 'studios' && entity?.website && <a className="rs-studio-website" href={/^https?:\/\//i.test(entity.website) ? entity.website : `https://${entity.website}`} target="_blank" rel="noopener noreferrer"><Globe size={15} /> {entity.website.replace(/^https?:\/\//i, '').replace(/\/$/, '')}</a>}
         {type === 'studios' && entity?.description && <p className="rs-entity-description">{entity.description}</p>}
       </div>
-      {isAdmin && type === 'studios' && entity && <div className="rs-studio-hero-actions"><button type="button" className="rs-button rs-button-outline" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Settings</button></div>}
+      {isAdmin && type === 'studios' && entity && <div className="rs-studio-hero-actions"><button type="button" className="rs-button rs-button-outline" onClick={editEntity}><Settings2 size={17} /> Edit</button></div>}
     </header>}
-    {type === 'performers' && entity && <PerformerSettings performerId={entity.id} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={loadEntity} onSwitch={id => { setSettingsOpen(false); navigate(`/performers/${id}`); }} onDeleted={() => navigate('/performers')} />}
-    {type === 'studios' && entity && <StudioSettings studioId={entity.id} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => { loadEntity(); refresh(); }} onSwitch={id => { setSettingsOpen(false); navigate(`/studios/${id}`); }} onDeleted={() => navigate('/studios')} />}
-    {type === 'series' && entity && <SeriesSettings seriesId={entity.id} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => { loadEntity(); refresh(); }} onDeleted={() => navigate('/series')} />}
     <Status loading={loading && !items.length} error={error} empty={!loading && !error && !items.length} retry={refresh} />
     {type === 'performers' && <StartHere titles={personTitles} name={name || terms.person.toLowerCase()} />}
     {type === 'studios' && !!featuredItems.length && <HeroCarousel items={featuredItems} eyebrow={type === 'performers' ? `Featuring ${name || terms.person.toLowerCase()}` : `From ${name || terms.studio.toLowerCase()}`} exclude={type === 'performers' ? [name, ...(entity?.aliases || [])] : []} />}
@@ -1458,7 +1424,6 @@ export function MediaDetail({ isAdmin = false }) {
   const [error, setError] = useState('');
   const [playerError, setPlayerError] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const playerRef = useRef(null);
   const frameRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1761,7 +1726,7 @@ export function MediaDetail({ isAdmin = false }) {
             <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.favorite ? 'is-favorite' : ''}`} aria-pressed={!!item.favorite} onClick={toggleFavorite}><Heart size={18} fill={item.favorite ? 'currentColor' : 'none'} /> {item.favorite ? 'Favorited' : 'Favorite'}</button>
             <button type="button" className={`rs-button rs-button-outline rs-button-lg ${item.watchLater ? 'is-favorite' : ''}`} aria-pressed={!!item.watchLater} onClick={toggleWatchLater}>{item.watchLater ? <BookmarkCheck size={18} /> : <Bookmark size={18} />} {item.watchLater ? 'In Watch later' : 'Watch later'}</button>
             <button type="button" className="rs-button rs-button-outline rs-button-lg" onClick={() => setPlaylistOpen(true)}><ListPlus size={18} /> Add to playlist</button>
-            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rs-button rs-button-outline rs-button-lg rs-button-icon rs-detail-more" aria-label="More"><Ellipsis size={18} /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={addToQueue}><ListPlus size={16} /> Add to queue</DropdownMenuItem><DropdownMenuItem onSelect={() => setPlaylistOpen(true)}><ListVideo size={16} /> Add to playlist</DropdownMenuItem><DropdownMenuItem onSelect={markWatched}><Check size={16} /> Mark as watched</DropdownMenuItem>{isAdmin && <DropdownMenuItem onSelect={() => setSettingsOpen(true)}><Settings2 size={16} /> Settings</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>
+            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="rs-button rs-button-outline rs-button-lg rs-button-icon rs-detail-more" aria-label="More"><Ellipsis size={18} /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={addToQueue}><ListPlus size={16} /> Add to queue</DropdownMenuItem><DropdownMenuItem onSelect={() => setPlaylistOpen(true)}><ListVideo size={16} /> Add to playlist</DropdownMenuItem><DropdownMenuItem onSelect={markWatched}><Check size={16} /> Mark as watched</DropdownMenuItem>{isAdmin && <DropdownMenuItem onSelect={() => editInAdmin('media', item.id)}><Settings2 size={16} /> Edit in Admin</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>
             <AddToPlaylist mediaItemId={item.id} open={playlistOpen} onOpenChange={setPlaylistOpen} />
           </div>
           {item.description && <p className="rs-detail-description">{item.description}</p>}
@@ -1786,6 +1751,5 @@ export function MediaDetail({ isAdmin = false }) {
       <Shelf eyebrow={`More from ${item.studioName || 'this studio'}`} title={item.studioName || 'More from this studio'} href={item.studioId ? `/studios/${item.studioId}` : undefined} items={studioMore} />
       <Shelf eyebrow="Suggested" title="Similar titles" items={related} />
     </div>
-    <MediaSettings mediaItemId={item.id} canDelete={isAdmin} onDeleted={() => { setSettingsOpen(false); navigate('/library'); }} open={settingsOpen} onOpenChange={setSettingsOpen} onChanged={() => getMediaItem(id).then(setItem).catch(() => {})} />
   </div>;
 }

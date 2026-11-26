@@ -11,6 +11,7 @@ import { mediaHref } from '../../appLinks';
 import { monogram } from '../../components/Monogram';
 import PerformerSettings, { DuplicateList, NewPerformerDialog } from '../../pages/PerformerSettings';
 import StudioSettings from '../../pages/StudioSettings';
+import SeriesSettings from '../../pages/SeriesSettings';
 import {
   EmptyState, ErrorState, Field, FormDialog, MoreMenu, PageHeader, PageStack, Panel, SectionTabs, SegmentedTabs, SkeletonRows, Status, TablePagination, TableToolbar, useConfirm,
 } from '../components';
@@ -21,6 +22,7 @@ import { tabsOf } from '../lib/navigation';
 import { useNotify } from '../lib/notify';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { useUrlState } from '../lib/useUrlState';
+import { useEditLink } from '../lib/useEditLink';
 
 // Admin › Metadata. Every page has the same shape: a header with the main actions, one match-run line
 // when the entity has providers, then one toolbar (status filter, search) over one table.
@@ -121,7 +123,7 @@ function useDeleteEntity(entityLabel, remove, onDone) {
 
 function EntityManager({
   entityLabel, entityPlural, list, create, update, remove, showMatch, linkPrefix = '/performers', avatar = null, revision = 0, onChanged, performers = false,
-  libraryId = null, libraryScoped = true, addRef, tools = [], notice = null, onTotal, addInToolbar = false, storageKey,
+  libraryId = null, libraryScoped = true, addRef, tools = [], notice = null, onTotal, addInToolbar = false, storageKey, series = false,
 }) {
   const studios = avatar === 'studio';
   const notify = useNotify();
@@ -135,7 +137,11 @@ function EntityManager({
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState(null);
-  const [settingsId, setSettingsId] = useState(null);
+  const [settingsId, setSettingsIdState] = useState(null);
+  const editLink = useEditLink();
+  const hasSettings = performers || studios || series;
+  useEffect(() => { if (editLink.id && hasSettings) setSettingsIdState(editLink.id); }, [editLink.id, hasSettings]);
+  const setSettingsId = useCallback(id => { setSettingsIdState(id); if (id == null && editLink.id) editLink.clear(); }, [editLink]);
   const [creatingPerformer, setCreatingPerformer] = useState(false);
   const [localRevision, setLocalRevision] = useState(0);
   const noun = entityPlural.toLowerCase();
@@ -211,6 +217,7 @@ function EntityManager({
                   <TableCell className="console-num-cell">{formatNumber(item.mediaCount ?? 0)}</TableCell>
                   <TableCell><MoreMenu iconOnly label={`Actions for ${item.name}`} items={[
                     (performers || studios) && { label: 'Match, photo and merge…', icon: Settings2, onSelect: () => setSettingsId(item.id) },
+                    series && { label: 'Artwork, titles and order…', icon: Settings2, onSelect: () => setSettingsId(item.id) },
                     { label: 'Rename…', icon: Pencil, onSelect: () => openEdit(item) }, 'separator', { label: 'Delete…', icon: Trash2, danger: true, onSelect: () => askDelete(item) },
                   ]} /></TableCell>
                 </TableRow>)}</TableBody>
@@ -220,6 +227,7 @@ function EntityManager({
 
     {performers && <NewPerformerDialog open={creatingPerformer} onOpenChange={setCreatingPerformer} onCreated={id => { changed(); setSettingsId(id); }} />}
     {studios && <StudioSettings studioId={settingsId} open={settingsId != null} onOpenChange={next => { if (!next) setSettingsId(null); }} onChanged={changed} onSwitch={id => setSettingsId(id)} onDeleted={() => { setSettingsId(null); changed(); }} />}
+    {series && <SeriesSettings seriesId={settingsId} open={settingsId != null} onOpenChange={next => { if (!next) setSettingsId(null); }} onChanged={changed} onDeleted={() => { setSettingsId(null); changed(); }} />}
     {performers && <PerformerSettings performerId={settingsId} open={settingsId != null} onOpenChange={next => { if (!next) setSettingsId(null); }} onChanged={changed} onSwitch={id => setSettingsId(id)} />}
 
     <FormDialog open={!!editing} onOpenChange={next => { if (!next) setEditing(null); }} title={editing?.id ? `Rename ${entityLabel.toLowerCase()}` : `Add ${entityLabel.toLowerCase()}`} size="sm"
@@ -332,7 +340,7 @@ export function SeriesPage() {
   return <PageStack>
     <Header active="/admin/metadata/series" title={terms.seriesPlural} subtitle={`Group related titles into ordered ${terms.seriesPlural.toLowerCase()}.`}
       actions={<>{libraries.length > 1 && <LibraryScopeSelect />}<Button onClick={() => addRef.current?.()} leadingIcon={<Plus size={14} />}>Add {terms.series.toLowerCase()}</Button></>} />
-    <EntityManager addRef={addRef} libraryId={libraryId} entityLabel={terms.series} entityPlural={terms.seriesPlural} list={getSeries} create={createSeries} update={updateSeries} remove={deleteSeries} />
+    <EntityManager series addRef={addRef} libraryId={libraryId} entityLabel={terms.series} entityPlural={terms.seriesPlural} list={getSeries} create={createSeries} update={updateSeries} remove={deleteSeries} />
   </PageStack>;
 }
 

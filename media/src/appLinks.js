@@ -17,3 +17,23 @@ export function loadAppUrls() {
 // Links across apps are always full page loads: the other app is a different bundle.
 export const mediaHref = path => `${urls.mediaUrl}${path}`;
 export const adminHref = path => `${urls.adminUrl}${path}`;
+
+// Editing lives in the admin app. These open its editor for one record in a new tab,
+// leaving the library where it was.
+const EDITOR_PATHS = {
+  media: '/admin/videos',
+  performers: '/admin/metadata/performers',
+  studios: '/admin/metadata/studios',
+  series: '/admin/metadata/series',
+};
+
+export function adminEditorHref(kind, id, tab) {
+  const base = EDITOR_PATHS[kind] || '/admin';
+  const query = new URLSearchParams({ edit: String(id) });
+  if (tab) query.set('tab', tab);
+  return adminHref(`${base}?${query}`);
+}
+
+export function editInAdmin(kind, id, tab) {
+  window.open(adminEditorHref(kind, id, tab), '_blank', 'noopener');
+}

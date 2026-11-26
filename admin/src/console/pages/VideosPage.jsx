@@ -16,6 +16,7 @@ import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { useNotify } from '../lib/notify';
 import { useResource } from '../lib/useResource';
 import { useUrlState } from '../lib/useUrlState';
+import { useEditLink } from '../lib/useEditLink';
 
 const STATUSES = [['', 'All', 'all'], ['review', 'Needs review', 'review'], ['filename', 'Filename only', 'filename'], ['matched', 'Matched', 'matched'], ['rejected', 'Rejected', 'rejected']];
 const missingOptions = terms => [['', 'Any metadata'], ['performers', `No ${terms.people.toLowerCase()}`], ['studio', 'No studio'], ['poster', 'No poster']];
@@ -59,6 +60,9 @@ export function VideosPage() {
   const debounced = useDebouncedValue(search.trim(), 300);
   const [selected, setSelected] = useState([]);
   const [editing, setEditing] = useState(null);
+  const editLink = useEditLink();
+  useEffect(() => { if (editLink.id) setEditing({ id: editLink.id, tab: editLink.tab || 'details' }); }, [editLink.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const closeEditor = () => { setEditing(null); if (editLink.id) editLink.clear(); };
   const [busy, setBusy] = useState(false);
   const disks = useResource(() => getStorageLocations().then(r => r.items || []), []);
 
@@ -174,6 +178,6 @@ export function VideosPage() {
             </Table></div>}
       {data && <TablePagination limit={size} offset={page * size} total={data.total} noun={data.total === 1 ? 'video' : 'videos'} onChange={({ limit, offset }) => setFilters({ size: String(limit), page: String(offset / limit) }, { keepPage: true })} />}
     </Panel>
-    {editing && <MediaSettings mediaItemId={editing.id} initialTab={editing.tab} open canDelete onOpenChange={next => { if (!next) setEditing(null); }} onChanged={videos.reload} onDeleted={() => { setEditing(null); videos.reload(); }} />}
+    {editing && <MediaSettings mediaItemId={editing.id} initialTab={editing.tab} open canDelete onOpenChange={next => { if (!next) closeEditor(); }} onChanged={videos.reload} onDeleted={() => { closeEditor(); videos.reload(); }} />}
   </PageStack>;
 }
