@@ -31,6 +31,7 @@ func (a *API) mountAdmin(r chi.Router) {
 		r.Delete("/providers/external/{id}/log", a.clearExternalProviderLog)
 		r.Delete("/providers/external/{id}", a.removeExternalProvider)
 		r.Route("/plugins", func(r chi.Router) {
+			r.Use(a.announcePluginChanges)
 			r.Get("/", a.listPlugins)
 			r.Post("/install", a.installPluginUpload)
 			r.Post("/install-url", a.installPluginURL)

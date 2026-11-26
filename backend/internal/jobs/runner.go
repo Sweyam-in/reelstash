@@ -67,6 +67,12 @@ type Runner struct {
 	backlog       []int64
 	jobCancels    map[int64]context.CancelFunc
 	userCancelled map[int64]bool
+	// queued holds every id in the backlog or running here, so a poll that
+	// sees a job still PENDING does not hand it to a second worker.
+	queued map[int64]struct{}
+	// queueOnly runners (NewQueue) persist jobs and run none: another
+	// process, the admin server, picks them up with PollPending.
+	queueOnly bool
 }
 
 func NewRunner(db database.DB, workers int) *Runner {
@@ -81,6 +87,7 @@ func NewRunner(db database.DB, workers int) *Runner {
 		cancel:        cancel,
 		jobCancels:    make(map[int64]context.CancelFunc),
 		userCancelled: make(map[int64]bool),
+		queued:        make(map[int64]struct{}),
 	}
 	r.cond = sync.NewCond(&r.mu)
 	for i := 0; i < workers; i++ {
@@ -153,6 +160,46 @@ func (r *Runner) Shutdown(timeout time.Duration) {
 	}
 }
 
+// NewQueue returns a runner that only records jobs. The media server uses
+// it: a sprite or preview it asks for is written as a PENDING row, and the
+// admin server's runners (which call PollPending) run it.
+func NewQueue(db database.DB) *Runner {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &Runner{
+		db:            db,
+		handlers:      make(map[string]Handler),
+		ctx:           ctx,
+		cancel:        cancel,
+		jobCancels:    make(map[int64]context.CancelFunc),
+		userCancelled: make(map[int64]bool),
+		queued:        make(map[int64]struct{}),
+		queueOnly:     true,
+	}
+	r.cond = sync.NewCond(&r.mu)
+	return r
+}
+
+// PollPending picks up PENDING jobs of this runner's kinds that another
+// process queued, every interval until ctx ends. Jobs already queued or
+// running here are skipped.
+func (r *Runner) PollPending(ctx context.Context, interval time.Duration) {
+	if r.queueOnly {
+		return
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := r.ResumePending(ctx); err != nil && ctx.Err() == nil {
+				log.Printf("jobs: poll for pending jobs: %v", err)
+			}
+		}
+	}
+}
+
 func (r *Runner) Register(kind string, handler Handler) {
 	r.handlers[kind] = handler
 }
@@ -174,12 +221,19 @@ func (r *Runner) Enqueue(ctx context.Context, kind string, payload any) (int64, 
 		return 0, err
 	}
 	changed()
-	r.push(id)
+	if !r.queueOnly {
+		r.push(id)
+	}
 	return id, nil
 }
 
 func (r *Runner) push(id int64) {
 	r.mu.Lock()
+	if _, dup := r.queued[id]; dup {
+		r.mu.Unlock()
+		return
+	}
+	r.queued[id] = struct{}{}
 	r.backlog = append(r.backlog, id)
 	r.cond.Signal()
 	r.mu.Unlock()
@@ -271,6 +325,9 @@ func (r *Runner) worker() {
 		r.backlog = r.backlog[1:]
 		r.mu.Unlock()
 		r.run(id)
+		r.mu.Lock()
+		delete(r.queued, id)
+		r.mu.Unlock()
 	}
 }
 
@@ -310,10 +367,16 @@ func (r *Runner) run(id int64) {
 		jobCancel()
 	}()
 
-	if _, err := r.db.Exec(jobCtx, `UPDATE background_job SET status = 'RUNNING', started_at = now(), attempts = attempts + 1 WHERE id = $1`, id); err != nil {
+	// Claim the row only while it is still PENDING, so two server processes
+	// sharing the database never run the same job.
+	tag, err := r.db.Exec(jobCtx, `UPDATE background_job SET status = 'RUNNING', started_at = now(), attempts = attempts + 1 WHERE id = $1 AND status = 'PENDING'`, id)
+	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.Printf("jobs: mark job %d running: %v", id, err)
 		}
+		return
+	}
+	if tag.RowsAffected() == 0 {
 		return
 	}
 	changed()

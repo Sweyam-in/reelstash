@@ -23,6 +23,9 @@ type Hub struct {
 	mu   sync.Mutex
 	subs map[*Subscriber]struct{}
 	kick chan struct{}
+	// relay, when set, also sends published events to other server
+	// processes (see Bridge). Deliver never relays, so nothing echoes back.
+	relay func(name string, data []byte, adminOnly bool)
 }
 
 func New() *Hub {
@@ -62,6 +65,17 @@ func (h *Hub) Publish(name string, payload any, adminOnly bool) {
 	if err != nil {
 		return
 	}
+	h.Deliver(name, data, adminOnly)
+	h.mu.Lock()
+	relay := h.relay
+	h.mu.Unlock()
+	if relay != nil {
+		relay(name, data, adminOnly)
+	}
+}
+
+// Deliver sends already-encoded data to this process's subscribers only.
+func (h *Hub) Deliver(name string, data []byte, adminOnly bool) {
 	ev := Event{Name: name, Data: data}
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -38,6 +38,8 @@ type API struct {
 	AuthPlugins *authplugin.Registry
 	// Downloads is the qBittorrent link; nil when it is not running.
 	Downloads *downloads.Service
+	// Role says which routes this process serves (see role.go).
+	Role Role
 
 	throttle *loginThrottle
 	// background cancels process-lifetime loops on server shutdown.
@@ -68,6 +70,9 @@ func NewRouter(db database.DB, cfg config.Config, jobRunner *jobs.Runner, sc *sc
 	for _, opt := range opts {
 		opt(api)
 	}
+	if api.Role == "" {
+		api.Role = RoleAll
+	}
 	if api.AuthPlugins == nil {
 		api.AuthPlugins = authplugin.NewRegistry()
 	}
@@ -76,7 +81,7 @@ func NewRouter(db database.DB, cfg config.Config, jobRunner *jobs.Runner, sc *sc
 		bg = context.Background()
 	}
 	go api.runStreamStatsFlush(bg)
-	if hub != nil {
+	if hub != nil && api.Role.ServesAdmin() {
 		go api.runJobsFeed(bg)
 	}
 
@@ -114,6 +119,8 @@ func (a *API) mountAPI(r chi.Router) {
 		a.mountMedia(r)
 		a.mountCatalog(r)
 		a.mountActivity(r)
-		a.mountAdmin(r)
+		if a.Role.ServesAdmin() {
+			a.mountAdmin(r)
+		}
 	})
 }

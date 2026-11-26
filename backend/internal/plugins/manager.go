@@ -59,6 +59,21 @@ type Options struct {
 	Store     Store
 	Providers *provider.Registry
 	Auth      *authplugin.Registry
+	// Kinds limits which bundles this manager loads and runs; empty means
+	// every kind. The media server runs only sign-in (auth) bundles.
+	Kinds []Kind
+}
+
+func (o Options) wants(k Kind) bool {
+	if len(o.Kinds) == 0 {
+		return true
+	}
+	for _, want := range o.Kinds {
+		if want == k {
+			return true
+		}
+	}
+	return false
 }
 
 // Manager installs bundles and keeps their processes running.
@@ -169,6 +184,9 @@ func (m *Manager) Load(ctx context.Context) error {
 			log.Printf("plugin bundle %q skipped: %v", e.Name(), err)
 			continue
 		}
+		if !m.opts.wants(man.Kind) {
+			continue
+		}
 		st, known := states[man.ID]
 		if !known {
 			st.Enabled = true
@@ -206,6 +224,27 @@ func (m *Manager) StartAll(ctx context.Context) {
 	for _, b := range todo {
 		m.start(b)
 	}
+}
+
+// Reload stops every bundle, reads the installed bundles and their settings
+// again, and starts the enabled ones. A server that does not manage plugins
+// itself (the media server) calls it when the admin server reports a change.
+func (m *Manager) Reload(ctx context.Context) error {
+	m.Shutdown()
+	m.mu.Lock()
+	for _, b := range m.bundles {
+		m.detach(b, true)
+	}
+	m.bundles = map[string]*bundle{}
+	runCtx, started := m.ctx, m.started
+	m.mu.Unlock()
+	if err := m.Load(ctx); err != nil {
+		return err
+	}
+	if started {
+		m.StartAll(runCtx)
+	}
+	return nil
 }
 
 // Shutdown stops every bundle and waits for the processes to end.
